@@ -1,8 +1,12 @@
+import json
 import logging
 
 from base import BasePlatform
-from oauthlib.oauth2 import BackendApplicationClient
+#from propel.celery import app
+from propel.models import Session, Connections
 from requests_oauthlib import OAuth2Session 
+
+
 
 class Twitter(BasePlatform):
     """
@@ -12,6 +16,7 @@ class Twitter(BasePlatform):
     def __init__(self):
         pass
 
+    #@app.task
     def capture_objects(self, user_id, from_id = 0, *args, **kwargs):
         """
         Capture tweets for a given Twitter user screen name
@@ -21,6 +26,16 @@ class Twitter(BasePlatform):
         :param from_id: id of the last downloaded tweet
         :type from_id: str
         """
+        session = Session()
+        twitter_conn = (session.
+                        query(Connections).
+                        filter_by(type='Twitter').
+                        first())
+        token = json.loads(twitter_conn.token)
+        twitter_session = OAuth2Session(token=token)
+        tweets = twitter_session.get('https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=PrisonPlanet&trim_user=true&exclude_replies=false&include_rts=True&count=200')
+        print json.loads(tweets.text)
+
         
         
     

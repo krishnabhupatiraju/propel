@@ -1,26 +1,27 @@
+import config
+
 from datetime import datetime
 from sqlalchemy import (create_engine, Table, Column, String, 
-                        Integer, DateTime, Enum, ForeignKey)
+                        Integer, DateTime, Enum, Boolean, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
 Base = declarative_base()
-engine = create_engine('sqlite:///:memory:',
-                       echo=True)
+engine = create_engine(config.DB, echo=True)
 Session = sessionmaker(bind=engine)
 
 class Connections(Base):
     __tablename__ = 'connections'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    type = Column(String(255))
+    type = Column(Enum('Twitter','Youtube'), nullable=False)
     key = Column(String(5000))
     secret = Column(String(5000))
     token = Column(String(5000))
-    created_at = Column(DateTime, default = datetime.now)
+    created_at = Column(DateTime, default=datetime.now)
     updated_on = Column(DateTime,
-                        default = datetime.now,
-                        onupdate = datetime.now)
+                        default=datetime.now,
+                        onupdate=datetime.now)
     
     def __repr__(self):
         return ("<Connection(id={0}, name={1})>"
@@ -38,10 +39,11 @@ class Flocks(Base):
     __tablename__ = 'flocks'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default = datetime.now)
+    is_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.now)
     updated_on = Column(DateTime,
-                        default = datetime.now,
-                        onupdate = datetime.now)
+                        default=datetime.now,
+                        onupdate=datetime.now)
     birds = relationship('Birds', 
                          backref = 'flocks',
                          secondary=bird_flock)
@@ -54,10 +56,10 @@ class Birds(Base):
     id = Column(Integer, primary_key=True)
     platform_id = Column(String(1000), nullable=False)
     platform_type = Column(Enum('Twitter'), nullable=False)
-    created_at = Column(DateTime, default = datetime.now)
+    created_at = Column(DateTime, default=datetime.now)
     updated_on = Column(DateTime,
-                        default = datetime.now,
-                        onupdate = datetime.now)
+                        default=datetime.now,
+                        onupdate=datetime.now)
     tweets = relationship('Tweets', backref='bird')
     def __repr__(self):
         return ("<Bird(id={0}, platform_id={1}, platform_type={2})>"
@@ -122,10 +124,10 @@ class Tweets(Base):
     retweet_retweet_count = Column(Integer)
     retweet_user_id = Column(String(255))
     retweet_user_screen_name = Column(String(1000))
-    created_at = Column(DateTime, default = datetime.now)
+    created_at = Column(DateTime, default=datetime.now)
     updated_on = Column(DateTime,
-                        default = datetime.now,
-                        onupdate = datetime.now)
+                        default=datetime.now,
+                        onupdate=datetime.now)
     def __repr__(self):
         return ("<Tweet(id={0}, text={1}, user_screen_name={2})>"
                 .format(self.id,self.text, self.user_screen_name))     
