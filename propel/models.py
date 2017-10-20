@@ -67,12 +67,11 @@ class Birds(Base):
     
 class Tweets(Base):
     __tablename__ = 'tweets'
-    id = Column(Integer, primary_key=True)
+    tweet_id = Column(String(255), primary_key=True)
     bird_id = Column(Integer, ForeignKey('birds.id'), nullable=False)
     tweet_type = Column(String(255))
     # Derived from parent level attributes of JSON returned by 
     # statuses/user_timeline
-    tweet_id = Column(String(255), nullable=False)
     tweet_created_at = Column(DateTime)
     text = Column(String(255))
     # Media uploaded to twitter

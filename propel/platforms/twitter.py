@@ -2,7 +2,7 @@ import json
 import logging
 
 from base import BasePlatform
-#from propel.celery import app
+from propel.celery_app import app
 from propel.models import Session, Connections
 from requests_oauthlib import OAuth2Session 
 
@@ -16,7 +16,7 @@ class Twitter(BasePlatform):
     def __init__(self):
         pass
 
-    #@app.task
+    
     def capture_objects(self, user_id, from_id = 0, *args, **kwargs):
         """
         Capture tweets for a given Twitter user screen name
