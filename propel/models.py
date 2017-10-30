@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
 Base = declarative_base()
-engine = create_engine(config.DB, echo=True)
+engine = create_engine(config.DB, echo=False)
 Session = sessionmaker(bind=engine)
 
 class Connections(Base):

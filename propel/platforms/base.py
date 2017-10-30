@@ -4,16 +4,18 @@ class BasePlatform(object):
     implement
     """
 
-    def capture_objects(self, user_id, *args, **kwargs):
-        """ Method to capture objects from platform E.g. tweets 
+    def get(self, user_id, *args, **kwargs):
+        """ 
+        Method to capture objects from platform E.g. tweets 
         
         :param user_id: id of the user
         :type user_id: string        
         """
         raise NotImplementedError()
 
-    def query_objects(self, user_id, from_ts, to_ts, *args, **kwargs):
-        """ Get objects saved in the local database 
+    def query(self, user_id, from_ts, to_ts, *args, **kwargs):
+        """ 
+        Get objects saved in the local database 
         
         :param user_id: id of the user
         :type user_id: string
@@ -22,4 +24,11 @@ class BasePlatform(object):
         :param to_ts: Objects created until this epoch
         :type to_ts: int        
         """
-        raise NotImplementedError()     
+        raise NotImplementedError()
+    
+    def schedule_args(self):
+        """
+        Returns the args using which the scheduler calls the 
+        get method
+        """
+        raise NotImplementedError()

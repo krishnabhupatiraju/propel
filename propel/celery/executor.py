@@ -1,12 +1,7 @@
 import json
 import logging
 
-from celery import Celery
-from propel import configuration
-from propel.executors.base_executor import BaseExecutor 
-
-broker = configuration.get('celery', 'broker')
-app = Celery(broker=broker, backend='rpc://')
+from propel.celery import app 
 
 @app.task(bind=True,
           autoretry_for=(Exception,),
@@ -24,7 +19,7 @@ def execute_command(self, command):
                          self.request.args,
                          self.request.kwargs))
 
-class CeleryExecutor(BaseExecutor): 
+class CeleryExecutor(object):
     
     def __init__(self):
         pass
