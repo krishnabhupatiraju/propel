@@ -1,13 +1,13 @@
-import config
-
 from datetime import datetime
+from propel import configuration 
 from sqlalchemy import (create_engine, Table, Column, String, 
                         Integer, DateTime, Enum, Boolean, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
+db = configuration.get('core', 'db')
 Base = declarative_base()
-engine = create_engine(config.DB, echo=False)
+engine = create_engine(db, echo=False)
 Session = sessionmaker(bind=engine)
 
 class Connections(Base):

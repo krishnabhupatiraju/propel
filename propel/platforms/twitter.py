@@ -3,12 +3,11 @@ import logging
 import time
 import traceback
 
+from requests_oauthlib import OAuth2Session
+
 from propel.platforms.base import BasePlatform
-from propel.celery import app
 from propel.models import Session, Connections
-from requests_oauthlib import OAuth2Session 
-
-
+from propel.utils import get_paths_from_json 
 
 class Twitter(BasePlatform):
     """
@@ -16,17 +15,17 @@ class Twitter(BasePlatform):
     """
     token = None
     timeline_url = ('https://api.twitter.com/1.1/statuses/'
-                             +' user_timeline.json')
+                             +'user_timeline.json')
     
     def __init__(self, try_limit=3, retry_delay=60):
         self.try_limit = try_limit
         self.retry_delay = retry_delay
         if not self.__class__.token:
             logging.info('Getting Twitter token')
-            self.__class__.token = self.get_token()
+            self.__class__.token = self._get_token()
     
     @classmethod
-    def get_token(cls):
+    def _get_token(cls):
         session = Session()
         twitter_conn = (session.
                         query(Connections).
@@ -35,6 +34,11 @@ class Twitter(BasePlatform):
         token = json.loads(twitter_conn.token)
         session.close()
         return token
+    
+    def _make_paths(self):
+        paths = {
+
+            }
 
     def get(self, user_id, from_id = None, *args, **kwargs):
         """
@@ -66,16 +70,19 @@ class Twitter(BasePlatform):
                 tweets = twitter_session.get(self.timeline_url,
                                              params=params)
                 tweets.raise_for_status()
+                paths
+                get_paths_from_json()
+                print json.loads(tweets.text)
                 # Add logic to parse result and insert into DB
                 # Add logic to extract the since_id and retry until [] 
                 # is returned
             except Exception as e:
                 logging.error(e, exc_info=True)
                 logging.error(log_msg.format('Failed'))
-                time.sleep(self.retry_delay)
                 if attempt_num == self.try_limit:
                     logging.error('Attempt limit reached.' +
                                   ' Will not retry')
+                time.sleep(self.retry_delay)
             else:
                 logging.info(log_msg.format('Successful'))    
                 break
