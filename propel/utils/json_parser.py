@@ -7,12 +7,16 @@ def _parse_operation(operation):
     """
     Given an operation string, method returns the name of the operation 
     and a tuple of the parsed operations. Supported operations are
+    access, filter and index
+    
     access: Match any character that is not { or [
+    
     filter: Must be enclosed between {}. Within braces should match format
-        <string><operator><string>. Operator should match 
-        ==, !=, >, >=, <, <=
+    <string><operator><string>. Operator should match 
+    ==, !=, >, >=, <, <=
+    
     index: Must be enclosed between []. Within brackets should match any 
-        digit or * character
+    digit or * character
         
     :param operation: Operation string 
     :type param: str
