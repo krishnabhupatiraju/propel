@@ -3,7 +3,7 @@ from propel.celery import app
 
 @app.task
 def schedule():
-    
+    pass
     
 scheduler_frequency = configuration.get('scheduler_frequency')
 schedule_dict = {}

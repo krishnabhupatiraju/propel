@@ -6,8 +6,9 @@ import traceback
 from requests_oauthlib import OAuth2Session
 
 from propel.platforms.base import BasePlatform
-from propel.models import Session, Connections
-from propel.utils import get_paths_from_json 
+from propel.models import Connections
+from propel.utils.json_parser import perform_operations_on_json
+from propel.utils.db import sessionize
 
 class Twitter(BasePlatform):
     """
@@ -25,14 +26,13 @@ class Twitter(BasePlatform):
             self.__class__.token = self._get_token()
     
     @classmethod
-    def _get_token(cls):
-        session = Session()
+    @sessionize
+    def _get_token(cls, session=None):
         twitter_conn = (session.
                         query(Connections).
                         filter_by(type='Twitter').
                         first())    
         token = json.loads(twitter_conn.token)
-        session.close()
         return token
     
     def _make_paths(self):
@@ -70,8 +70,8 @@ class Twitter(BasePlatform):
                 tweets = twitter_session.get(self.timeline_url,
                                              params=params)
                 tweets.raise_for_status()
-                paths
-                get_paths_from_json()
+                #paths
+                #get_paths_from_json()
                 print json.loads(tweets.text)
                 # Add logic to parse result and insert into DB
                 # Add logic to extract the since_id and retry until [] 
@@ -95,6 +95,8 @@ class Twitter(BasePlatform):
         pass
         
         
+if __name__ == '__main__':
+    print Twitter().get('b_krishna_varma')
 
         
         

@@ -22,7 +22,7 @@ class Connections(Base):
     updated_on = Column(DateTime,
                         default=datetime.now,
                         onupdate=datetime.now)
-    
+
     def __repr__(self):
         return ("<Connection(id={0}, name={1})>"
                 .format(self.id,self.name))
@@ -47,6 +47,7 @@ class Flocks(Base):
     birds = relationship('Birds', 
                          backref = 'flocks',
                          secondary=bird_flock)
+
     def __repr__(self):
         return ("<Flock(id={0}, name={1}>"
                 .format(self.id,self.name))
@@ -61,6 +62,7 @@ class Birds(Base):
                         default=datetime.now,
                         onupdate=datetime.now)
     tweets = relationship('Tweets', backref='bird')
+
     def __repr__(self):
         return ("<Bird(id={0}, platform_id={1}, platform_type={2})>"
                 .format(self.id,self.platform_id, self.platform_type))
@@ -127,8 +129,9 @@ class Tweets(Base):
     updated_on = Column(DateTime,
                         default=datetime.now,
                         onupdate=datetime.now)
+
     def __repr__(self):
         return ("<Tweet(id={0}, text={1}, user_screen_name={2})>"
-                .format(self.id,self.text, self.user_screen_name))     
+                .format(self.id,self.text, self.user_screen_name))
 
 Base.metadata.create_all(engine)
