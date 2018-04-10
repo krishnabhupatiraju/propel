@@ -1,5 +1,5 @@
 from datetime import datetime
-from propel import configuration 
+from propel import configuration
 from sqlalchemy import (create_engine, Table, Column, String, 
                         Integer, DateTime, Enum, Boolean, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
@@ -9,6 +9,7 @@ db = configuration.get('core', 'db')
 Base = declarative_base()
 engine = create_engine(db, echo=False)
 Session = sessionmaker(bind=engine)
+
 
 class Connections(Base):
     __tablename__ = 'connections'
@@ -27,6 +28,7 @@ class Connections(Base):
         return ("<Connection(id={0}, name={1})>"
                 .format(self.id,self.name))
 
+
 # Association table to define Many to Many relationship
 # between Flocks and birds
 bird_flock = Table('bird_flock',
@@ -34,7 +36,8 @@ bird_flock = Table('bird_flock',
                    Column('flock_id', Integer, ForeignKey('flocks.id')),
                    Column('bird_id', Integer, ForeignKey('birds.id'))
                    )
-        
+
+
 class Flocks(Base):
     __tablename__ = 'flocks'
     id = Column(Integer, primary_key=True)
@@ -51,7 +54,8 @@ class Flocks(Base):
     def __repr__(self):
         return ("<Flock(id={0}, name={1}>"
                 .format(self.id,self.name))
-    
+
+
 class Birds(Base):
     __tablename__ = 'birds'
     id = Column(Integer, primary_key=True)
@@ -66,7 +70,8 @@ class Birds(Base):
     def __repr__(self):
         return ("<Bird(id={0}, platform_id={1}, platform_type={2})>"
                 .format(self.id,self.platform_id, self.platform_type))
-    
+
+
 class Tweets(Base):
     __tablename__ = 'tweets'
     tweet_id = Column(String(255), primary_key=True)
@@ -133,5 +138,6 @@ class Tweets(Base):
     def __repr__(self):
         return ("<Tweet(id={0}, text={1}, user_screen_name={2})>"
                 .format(self.id,self.text, self.user_screen_name))
+
 
 Base.metadata.create_all(engine)

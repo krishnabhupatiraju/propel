@@ -16,9 +16,9 @@ elif os.path.exists(os.path.join(cwd, 'default_config.cfg')):
 else:
     raise Exception('Unable to find config at {}'.format(cwd))  
 
+
 def get(section, option=None):
     if option:
         return config.get(section, option)
     else:
         return config.items(section)
-     

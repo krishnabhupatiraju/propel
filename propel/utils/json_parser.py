@@ -1,7 +1,7 @@
-import json
 import logging
 import re
 import traceback
+
 
 def _parse_operation(operation):
     """
@@ -19,7 +19,7 @@ def _parse_operation(operation):
     digit or * character
         
     :param operation: Operation string 
-    :type param: str
+    :type operation: str
     """
     logging.info("Parsing operation: {}".format(operation))
     access_pattern = "^([^{[]+)$"
@@ -44,10 +44,11 @@ def _parse_operation(operation):
     logging.warn("Unknown operation type")       
     return None, None
 
+
 def perform_operations_on_json(json_object, operations):
     """
     Perform operations on json and return the result.
-    Operations is a sequential set of operation seperated by a dot. 
+    Operations is a sequential set of operation separated by a dot.
     Operation is one of 3 types - access, filter and index. 
     
     Operation Types:
@@ -131,7 +132,7 @@ def perform_operations_on_json(json_object, operations):
                 logging.debug("Performing index operation")
                 index = operator[0]
                 if index == "*":
-                    logging.debug("Received * index. Stacking all "+
+                    logging.debug("Received * index. Stacking all " +
                                   "entries within list")
                     for stack_item in stack:
                         if isinstance(stack_item, list):
@@ -140,7 +141,7 @@ def perform_operations_on_json(json_object, operations):
                 elif index.isdigit():
                     stack_buffer.append(stack[int(index)])
             else:
-                logging.warn("Unknown operation type. "+
+                logging.warn("Unknown operation type. " +
                              "Cannot process further")
                 return None
             stack = stack_buffer
@@ -157,6 +158,7 @@ def perform_operations_on_json(json_object, operations):
         logging.warn("Exception while processing json")
         traceback.print_exc()
         return None
+
 
 def perform_multiple_operations_on_json(json_object, operations_map):
     """

@@ -5,6 +5,7 @@ from functools import wraps
 
 from propel.models import Session
 
+
 @contextmanager
 def create_session():
     """
@@ -19,6 +20,7 @@ def create_session():
         raise
     finally:
         session.close()
+
 
 def sessionize(func):
     """

@@ -2,6 +2,7 @@ import inspect
 
 from plugout import PluginManager
 
+
 def get_plugins(base_class,
                 path,
                 follow_links=False,
@@ -14,7 +15,7 @@ def get_plugins(base_class,
     plugins = []
     if exclude_base_from_result:
         for plugin in pm.plugins:
-            if not plugin is base_class:
+            if not (plugin is base_class):
                 plugins.append(plugin)
         return plugins
     else:
