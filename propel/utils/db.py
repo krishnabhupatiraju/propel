@@ -3,7 +3,7 @@ import inspect
 from contextlib import contextmanager
 from functools import wraps
 
-from propel.models import Session
+from propel.settings import Session
 
 
 @contextmanager
@@ -22,7 +22,7 @@ def create_session():
         session.close()
 
 
-def sessionize(func):
+def provide_session(func):
     """
     Decorator that provides a session to the calling function if one is
     not provided as function argument. Session Commit, Rollback and

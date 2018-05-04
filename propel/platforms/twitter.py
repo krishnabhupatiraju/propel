@@ -5,9 +5,8 @@ from requests_oauthlib import OAuth2Session
 
 from propel import configuration
 from propel.platforms.base import BasePlatform
-from propel.models import Connections
-from propel.utils.json_parser import perform_operations_on_json
-from propel.utils.db import sessionize
+from propel.models import Connections, Tweets
+from propel.utils.db import provide_session
 
 
 class Twitter(BasePlatform):
@@ -18,7 +17,7 @@ class Twitter(BasePlatform):
     timeline_url = configuration.get('urls', 'twitter_user_timeline')
     
     @staticmethod
-    @sessionize
+    @provide_session
     def _get_token(session=None):
         twitter_conn = (session.
                         query(Connections).
@@ -60,9 +59,8 @@ class Twitter(BasePlatform):
                 request_params['since_id'] = max([tweet['id'] for tweet in tweets])
             else:
                 continue_fetching = False
-            # Add logic to parse result and insert into DB
-            for tweet in tweets:
-                print tweet
+            Tweets.insert_to_db(tweets)
+
     
     def schedule_args(self):
         """

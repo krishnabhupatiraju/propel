@@ -45,7 +45,7 @@ def _parse_operation(operation):
     return None, None
 
 
-def perform_operations_on_json(json_object, operations):
+def extract_from_json(json_object, operations):
     """
     Perform operations on json and return the result.
     Operations is a sequential set of operation separated by a dot.
@@ -71,22 +71,22 @@ def perform_operations_on_json(json_object, operations):
                                  {'area':'aaa', 'number':'bbbccc'}
                                  ]
                         }
-    perform_operations_on_json(input_json, 'name')
+    extract_from_json(input_json, 'name')
     {'first': 'Dilly', 'last': 'Berty'}
     
-    perform_operations_on_json(input_json, 'name.first')
+    extract_from_json(input_json, 'name.first')
     'Dilly'
     
-    perform_operations_on_json(input_json, 'phone.{area=="aaa"}')
+    extract_from_json(input_json, 'phone.{area=="aaa"}')
     None
     
-    perform_operations_on_json(input_json, 'phone.[*].{area=="aaa"}')
+    extract_from_json(input_json, 'phone.[*].{area=="aaa"}')
     {'area': 'aaa', 'number': 'bbbccc'}
     
-    perform_operations_on_json(input_json, 'phone.[*].{area!=111}')
+    extract_from_json(input_json, 'phone.[*].{area!=111}')
     [{'number': 555666, 'area': 444}, {'number': 'bbbccc', 'area': 'aaa'}]
     
-    perform_operations_on_json(input_json, 'phone.[*].{area!=111}.[0]')
+    extract_from_json(input_json, 'phone.[*].{area!=111}.[0]')
     {'number': 555666, 'area': 444}
     
     :param json_object: JSON Object
@@ -160,13 +160,13 @@ def perform_operations_on_json(json_object, operations):
         return None
 
 
-def perform_multiple_operations_on_json(json_object, operations_map):
+def extract_multiple_from_json(json_object, operations_map):
     """
     Return a dictionary with name and output from performing corresponding 
-    operations on json_object. See perform_operations_on_json 
+    operations on json_object. See extract_from_json
     documentation for more details
     
-    E.g. perform_multiple_operations_on_json(
+    E.g. extract_multiple_from_json(
     input_json, 
     {'first_name': 'name.first', 'phone': 'phone.[*].[0]'}
     )
@@ -180,6 +180,6 @@ def perform_multiple_operations_on_json(json_object, operations_map):
     """
     output = {}
     for name, operations in operations_map.iteritems():
-        output[name] = perform_operations_on_json(json_object,
-                                                  operations=operations)
+        output[name] = extract_from_json(json_object,
+                                         operations=operations)
     return output

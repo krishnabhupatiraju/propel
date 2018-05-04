@@ -1,14 +1,13 @@
 from datetime import datetime
-from propel import configuration
-from sqlalchemy import (create_engine, Table, Column, String, 
-                        Integer, DateTime, Enum, Boolean, ForeignKey)
+from sqlalchemy import (Table, Column, String, Integer,
+                        DateTime, Enum, Boolean, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import relationship
 
-db = configuration.get('core', 'db')
+from propel.settings import Engine
+from propel.utils.db import provide_session
+
 Base = declarative_base()
-engine = create_engine(db, echo=False)
-Session = sessionmaker(bind=engine)
 
 
 class Connections(Base):
@@ -62,14 +61,12 @@ class Birds(Base):
     platform_id = Column(String(1000), nullable=False)
     platform_type = Column(Enum('Twitter'), nullable=False)
     created_at = Column(DateTime, default=datetime.now)
-    updated_on = Column(DateTime,
-                        default=datetime.now,
-                        onupdate=datetime.now)
+    updated_on = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     tweets = relationship('Tweets', backref='bird')
 
     def __repr__(self):
         return ("<Bird(id={0}, platform_id={1}, platform_type={2})>"
-                .format(self.id,self.platform_id, self.platform_type))
+                .format(self.id, self.platform_id, self.platform_type))
 
 
 class Tweets(Base):
@@ -131,13 +128,19 @@ class Tweets(Base):
     retweet_user_id = Column(String(255))
     retweet_user_screen_name = Column(String(1000))
     created_at = Column(DateTime, default=datetime.now)
-    updated_on = Column(DateTime,
-                        default=datetime.now,
-                        onupdate=datetime.now)
+    updated_on = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def __repr__(self):
         return ("<Tweet(id={0}, text={1}, user_screen_name={2})>"
                 .format(self.id,self.text, self.user_screen_name))
 
+    @classmethod
+    @provide_session
+    def insert_to_db(cls, tweets_json, session=None):
+        tweets = list()
+        for tweet_json in tweets_json:
+            tweets.append(cls(tweet_id=tweet_json['id']))
+        session.bulk_save_objects(tweets)
 
-Base.metadata.create_all(engine)
+
+Base.metadata.create_all(Engine)
