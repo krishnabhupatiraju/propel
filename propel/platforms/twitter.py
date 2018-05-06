@@ -1,11 +1,11 @@
 import json
-import logging
 
 from requests_oauthlib import OAuth2Session
 
 from propel import configuration
 from propel.platforms.base import BasePlatform
 from propel.models import Connections, Tweets
+from propel.settings import logger
 from propel.utils.db import provide_session
 
 
@@ -37,7 +37,7 @@ class Twitter(BasePlatform):
              If none the last 200 are downloaded 
         :type from_id: str
         """
-        logging.info('Getting Twitter token')
+        logger.info('Getting Twitter token')
         token = cls._get_token()
         twitter_session = OAuth2Session(token=token)
         continue_fetching = True

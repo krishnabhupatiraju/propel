@@ -1,7 +1,8 @@
 import json
-import logging
 
-from propel.celery import app 
+from propel.celery import app
+from propel.setting import logger
+
 
 @app.task(bind=True,
           autoretry_for=(Exception,),
@@ -14,20 +15,20 @@ from propel.celery import app
           )
 def execute_command(self, command):
     print command
-    logging.info('Celery Worker executing task:{} args:{} kwargs:{}'
-                 .format(self.request.id,
-                         self.request.args,
-                         self.request.kwargs))
+    logger.info('Celery Worker executing task:{} args:{} kwargs:{}'
+                .format(self.request.id,
+                        self.request.args,
+                        self.request.kwargs))
 
 class CeleryExecutor(object):
-    
+
     def __init__(self):
         pass
-    
+
     def execute(self, command):
         """
         Execute 'command' through a Celery Worker
         """
         print 'Queuing command {} to Celery'.format(command)
-        logging.info('Queuing command {} to Celery'.format(command))
+        logger.info('Queuing command {} to Celery'.format(command))
         return execute_command.apply_async(args=[command])
