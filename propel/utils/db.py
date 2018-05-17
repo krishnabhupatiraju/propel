@@ -14,6 +14,7 @@ def create_session():
     session = Session()
     try:
         yield session
+        session.expunge_all()
         session.commit()
     except Exception as e:
         session.rollback()

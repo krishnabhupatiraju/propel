@@ -3,13 +3,13 @@ import json
 from requests_oauthlib import OAuth2Session
 
 from propel import configuration
-from propel.platforms.base import BasePlatform
+from propel.tasks.base import BaseTask
 from propel.models import Connections, Tweets
 from propel.settings import logger
 from propel.utils.db import provide_session
 
 
-class Twitter(BasePlatform):
+class TwitterExtract(BaseTask):
     """
     Class that contains methods to capture and store tweets from Twitter
     """
@@ -61,7 +61,6 @@ class Twitter(BasePlatform):
                 continue_fetching = False
             Tweets.insert_to_db(tweets)
 
-    
     def schedule_args(self):
         """
         Returns the args using which the scheduler calls the 
@@ -71,4 +70,4 @@ class Twitter(BasePlatform):
 
         
 if __name__ == '__main__':
-    print Twitter.get('b_krishna_varma')
+    print TwitterExtract.get('b_krishna_varma')

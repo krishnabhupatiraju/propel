@@ -1,6 +1,6 @@
-class BasePlatform(object):
+class BaseTask(object):
     """
-    Abstract Base Platform class that concrete subclasses will 
+    Abstract BaseTask class that concrete subclasses will
     implement
     """
 

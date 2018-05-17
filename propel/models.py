@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import (Table, Column, String, Integer,
                         DateTime, Enum, Boolean, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 from propel.settings import Engine
 from propel.utils.db import provide_session
@@ -14,65 +14,92 @@ class Connections(Base):
     __tablename__ = 'connections'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    type = Column(Enum('Twitter','Youtube'), nullable=False)
+    type = Column(Enum('Twitter', 'Youtube'), nullable=False)
     key = Column(String(5000))
     secret = Column(String(5000))
     token = Column(String(5000))
     created_at = Column(DateTime, default=datetime.now)
-    updated_on = Column(DateTime,
+    updated_at = Column(DateTime,
                         default=datetime.now,
-                        onupdate=datetime.now)
+                        onupdate=datetime.now
+                        )
 
     def __repr__(self):
         return ("<Connection(id={0}, name={1})>"
-                .format(self.id,self.name))
+                .format(self.id,self.name)
+                )
 
 
 # Association table to define Many to Many relationship
-# between Flocks and birds
-bird_flock = Table('bird_flock',
-                   Base.metadata, 
-                   Column('flock_id', Integer, ForeignKey('flocks.id')),
-                   Column('bird_id', Integer, ForeignKey('birds.id'))
-                   )
+# between Task Groups and Tasks
+task_group_members = Table('task_group_members',
+                           Base.metadata,
+                           Column('task_group_id', Integer, ForeignKey('task_groups.id')),
+                           Column('task_id', Integer, ForeignKey('tasks.id'))
+                           )
 
 
-class Flocks(Base):
-    __tablename__ = 'flocks'
+class TaskGroups(Base):
+    __tablename__ = 'task_groups'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
-    updated_on = Column(DateTime,
+    updated_at = Column(DateTime,
                         default=datetime.now,
-                        onupdate=datetime.now)
-    birds = relationship('Birds', 
-                         backref = 'flocks',
-                         secondary=bird_flock)
+                        onupdate=datetime.now
+                        )
+    tasks = relationship('Tasks',
+                         backref='task_groups',
+                         secondary=task_group_members
+                         )
 
     def __repr__(self):
-        return ("<Flock(id={0}, name={1}>"
-                .format(self.id,self.name))
+        return "<Task Group(id={0}, name={1})>".format(self.id,self.name)
 
 
-class Birds(Base):
-    __tablename__ = 'birds'
+class Tasks(Base):
+    __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True)
-    platform_id = Column(String(1000), nullable=False)
-    platform_type = Column(Enum('Twitter'), nullable=False)
+    task_name = Column(String(1000), nullable=False)
+    task_type = Column(Enum('TwitterExtract'), nullable=False)
+    task_args = Column(String(1000), nullable=False)
+    run_frequency_seconds = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
-    updated_on = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-    tweets = relationship('Tweets', backref='bird')
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def __repr__(self):
-        return ("<Bird(id={0}, platform_id={1}, platform_type={2})>"
-                .format(self.id, self.platform_id, self.platform_type))
+        return ("<Task(id={0}, task_type={2}, task_args={1})>"
+                .format(self.id, self.task_args, self.task_type)
+                )
+
+
+class TaskRuns(Base):
+    __tablename__ = 'task_runs'
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('tasks.id'), nullable=False)
+    state = Column(String(255), nullable=False)
+    run_ds = Column(DateTime, nullable=False)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime,
+                        default=datetime.now,
+                        onupdate=datetime.now
+                        )
+    tasks = relationship('Tasks',
+                         backref=backref('task_runs', lazy='dynamic')
+                         )
+
+    def __repr__(self):
+        return ("<TaskRun(id={0}, task_id={1}, run_ds={2}, state={3})>"
+                .format(self.id, self.task_id, self.run_ds, self.state)
+                )
 
 
 class Tweets(Base):
     __tablename__ = 'tweets'
     tweet_id = Column(String(255), primary_key=True)
-    bird_id = Column(Integer, ForeignKey('birds.id'), nullable=False)
     tweet_type = Column(String(255))
     # Derived from parent level attributes of JSON returned by 
     # statuses/user_timeline
@@ -128,11 +155,12 @@ class Tweets(Base):
     retweet_user_id = Column(String(255))
     retweet_user_screen_name = Column(String(1000))
     created_at = Column(DateTime, default=datetime.now)
-    updated_on = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def __repr__(self):
         return ("<Tweet(id={0}, text={1}, user_screen_name={2})>"
-                .format(self.id,self.text, self.user_screen_name))
+                .format(self.id,self.text, self.user_screen_name)
+                )
 
     @classmethod
     @provide_session

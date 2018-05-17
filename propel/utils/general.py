@@ -1,5 +1,8 @@
 import re
+import time
 import traceback
+
+from functools import wraps
 
 from propel.settings import logger
 
@@ -181,6 +184,31 @@ def extract_multiple_from_json(json_object, operations_map):
     """
     output = {}
     for name, operations in operations_map.iteritems():
-        output[name] = extract_from_json(json_object,
-                                         operations=operations)
+        output[name] = extract_from_json(json_object,operations=operations)
     return output
+
+
+class Memoize(object):
+    """
+    Decorator to memoize the results of the function until ttl.
+    """
+    def __init__(self, ttl):
+        self.ttl = ttl
+        self.expires_at = time.time() + ttl
+        self.cache = dict()
+
+    def __call__(self, func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            key = str(args) + str(kwargs)
+            if self.expires_at <= time.time():
+                logger.debug('Cache expired for {}({},{})'.format(func, args, kwargs))
+                self.expires_at = time.time() + self.ttl
+                self.cache[key] = func(*args, **kwargs)
+            elif key not in self.cache:
+                logger.debug('Key not found in cache for {}({},{})'.format(func, args, kwargs))
+                self.cache[key] = func(*args, **kwargs)
+            else:
+                logger.debug("Cache hit for {}({},{})".format(func, args, kwargs))
+            return self.cache[key]
+        return wrapper

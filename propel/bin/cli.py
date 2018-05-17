@@ -17,7 +17,7 @@ def cli_factory(cli_args):
             port = cli_args.get('port')
             logger.info('Starting Webserver at port {}'.format(port))
             app = create_app()
-            app.run(port=8999, debug=True)
+            app.run(port=port, debug=True)
     elif subparser_name == 'celery':
         print "Starting Celery"
     elif subparser_name == 'queue':

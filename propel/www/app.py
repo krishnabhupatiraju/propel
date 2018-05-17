@@ -12,7 +12,8 @@ def create_app():
     admin = Admin(app, name='propel', template_mode='bootstrap3')
     session = Session()
     admin.add_view(ModelView(models.Connections, session))
-    admin.add_view(ModelView(models.Flocks, session))
-    admin.add_view(ModelView(models.Birds, session))
+    admin.add_view(ModelView(models.TaskGroups, session))
+    admin.add_view(ModelView(models.Tasks, session))
+    admin.add_view(ModelView(models.TaskRuns, session))
     admin.add_view(ModelView(models.Tweets, session))
     return app
