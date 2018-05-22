@@ -212,3 +212,15 @@ class Memoize(object):
                 logger.debug("Cache hit for {}({},{})".format(func, args, kwargs))
             return self.cache[key]
         return wrapper
+
+
+class Singleton(type):
+    """
+    Intended to used as a __metaclass__ to enforce singleton pattern on a class
+    """
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]

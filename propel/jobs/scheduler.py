@@ -1,41 +1,45 @@
+import time
+
 from datetime import datetime, timedelta
 from sqlalchemy import func
 
 from propel.models import Tasks, TaskRuns
+from propel import configuration
+from propel.jobs.base_job import BaseJob
 from propel.settings import logger
 from propel.utils.db import provide_session
 from propel.utils.general import Memoize
 from propel.utils.state import State
 
 
-class Scheduler(object):
+class Scheduler(BaseJob):
 
-    @staticmethod
-    def run():
+    def run(self):
+        self.heartbeat(self._run_helper)
+
+    def _run_helper(self):
+        scheduler_sleep_seconds = int(configuration.get('core', 'scheduler_sleep_seconds'))
         while True:
             current_datetime = datetime.utcnow()
-            tasks_to_run = Scheduler._get_eligible_tasks_to_run(current_datetime)
+            tasks_to_run = self._get_eligible_tasks_to_run(current_datetime)
             for task_to_run in tasks_to_run:
-                Scheduler._insert_new_task_run_to_db(
+                self._insert_new_task_run_to_db(
                     task_id=task_to_run[0].id,
                     state=State.QUEUED,
                     run_ds=task_to_run[1]
                 )
-            import time
-            time.sleep(5)
+            time.sleep(scheduler_sleep_seconds)
 
-    @staticmethod
     @provide_session
-    def _insert_new_task_run_to_db(session=None, **kwargs):
+    def _insert_new_task_run_to_db(self, session=None, **kwargs):
         task = TaskRuns(**kwargs)
         session.add(task)
         session.commit()
 
-    @staticmethod
-    def _get_eligible_tasks_to_run(current_datetime):
+    def _get_eligible_tasks_to_run(self, current_datetime):
         eligible_tasks_to_run = []
-        tasks = Scheduler._get_tasks()
-        last_task_runs = Scheduler._get_last_task_runs()
+        tasks = self._get_tasks()
+        last_task_runs = self._get_last_task_runs()
         for task in tasks:
             task_last_run_ds = last_task_runs.get(task.id)
             if task_last_run_ds:
@@ -53,8 +57,7 @@ class Scheduler(object):
                     )
             else:
                 next_run_ds = (current_datetime -
-                               timedelta(minutes=round(current_datetime.minute, -1),
-                                         seconds=current_datetime.second,
+                               timedelta(seconds=round(current_datetime.second, -1),
                                          microseconds=current_datetime.microsecond
                                          )
                                )
@@ -65,9 +68,8 @@ class Scheduler(object):
                 eligible_tasks_to_run.append((task, next_run_ds))
         return eligible_tasks_to_run
 
-    @staticmethod
     @provide_session
-    def _get_last_task_runs(session=None):
+    def _get_last_task_runs(self, session=None):
         last_task_runs = (
             session.query(
                 TaskRuns.task_id.label('task_id'),
@@ -80,7 +82,7 @@ class Scheduler(object):
         }
 
     @staticmethod
-    @Memoize(ttl=30)
+    @Memoize(ttl=300)
     @provide_session
     def _get_tasks(session=None):
         return session.query(Tasks).all()
@@ -88,4 +90,4 @@ class Scheduler(object):
 
 if __name__ == '__main__':
         # Scheduler.run()
-        print Scheduler.run()
+        print Scheduler().run()

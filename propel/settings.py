@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 from propel import configuration
 
@@ -16,7 +16,9 @@ def configure_orm():
     db = configuration.get('core', 'db')
     sql_alchemy_pool_size = int(configuration.get('core', 'sql_alchemy_pool_size'))
     Engine = create_engine(db, echo=False, pool_size=sql_alchemy_pool_size)
-    Session = sessionmaker(bind=Engine)
+    # Using a scoped session so we can create a session per request-response cycle.
+    # See www/app.py where a session is removed after every request.
+    Session = scoped_session(sessionmaker(bind=Engine))
 
 
 def configure_logging():

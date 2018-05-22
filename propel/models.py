@@ -18,16 +18,14 @@ class Connections(Base):
     key = Column(String(5000))
     secret = Column(String(5000))
     token = Column(String(5000))
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime,
-                        default=datetime.now,
-                        onupdate=datetime.now
-                        )
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
-        return ("<Connection(id={0}, name={1})>"
-                .format(self.id,self.name)
-                )
+        return (
+            "<Connection(id={0}, name={1})>"
+            .format(self.id,self.name)
+        )
 
 
 # Association table to define Many to Many relationship
@@ -44,15 +42,9 @@ class TaskGroups(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
     is_enabled = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime,
-                        default=datetime.now,
-                        onupdate=datetime.now
-                        )
-    tasks = relationship('Tasks',
-                         backref='task_groups',
-                         secondary=task_group_members
-                         )
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    tasks = relationship('Tasks', backref='task_groups', secondary=task_group_members)
 
     def __repr__(self):
         return "<Task Group(id={0}, name={1})>".format(self.id,self.name)
@@ -65,13 +57,14 @@ class Tasks(Base):
     task_type = Column(Enum('TwitterExtract'), nullable=False)
     task_args = Column(String(1000), nullable=False)
     run_frequency_seconds = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
-        return ("<Task(id={0}, task_type={2}, task_args={1})>"
-                .format(self.id, self.task_args, self.task_type)
-                )
+        return (
+            "<Task(id={0}, task_type={2}, task_args={1})>"
+            .format(self.id, self.task_args, self.task_type)
+        )
 
 
 class TaskRuns(Base):
@@ -82,19 +75,31 @@ class TaskRuns(Base):
     run_ds = Column(DateTime, nullable=False)
     start_time = Column(DateTime)
     end_time = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime,
-                        default=datetime.now,
-                        onupdate=datetime.now
-                        )
-    tasks = relationship('Tasks',
-                         backref=backref('task_runs', lazy='dynamic')
-                         )
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    tasks = relationship('Tasks', backref=backref('task_runs', lazy='dynamic'))
 
     def __repr__(self):
-        return ("<TaskRun(id={0}, task_id={1}, run_ds={2}, state={3})>"
-                .format(self.id, self.task_id, self.run_ds, self.state)
-                )
+        return (
+            "<TaskRun(id={0}, task_id={1}, run_ds={2}, state={3})>"
+            .format(self.id, self.task_id, self.run_ds, self.state)
+        )
+
+
+class Heartbeats(Base):
+    __tablename__ = 'heartbeats'
+    id = Column(Integer, primary_key=True)
+    task_run_id = Column(Integer, ForeignKey('task_runs.id'), nullable=True)
+    task_type = Column(String(255), nullable=False)
+    heartbeat_start_time = Column(DateTime, default=datetime.utcnow)
+    last_heartbeat_time = Column(DateTime, default=datetime.utcnow)
+    task_runs = relationship('TaskRuns', backref=backref('Heartbeats', lazy='dynamic'))
+
+    def __repr__(self):
+        return (
+            "<Heartbeat(id={0}, task_run_id={1}, task_type={2}, last_heartbeat_time={3})>"
+            .format(self.id, self.task_run_id, self.task_type, self.last_heartbeat_time)
+        )
 
 
 class Tweets(Base):
@@ -154,13 +159,14 @@ class Tweets(Base):
     retweet_retweet_count = Column(Integer)
     retweet_user_id = Column(String(255))
     retweet_user_screen_name = Column(String(1000))
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
-        return ("<Tweet(id={0}, text={1}, user_screen_name={2})>"
-                .format(self.id,self.text, self.user_screen_name)
-                )
+        return (
+            "<Tweet(id={0}, text={1}, user_screen_name={2})>"
+            .format(self.id,self.text, self.user_screen_name)
+        )
 
     @classmethod
     @provide_session
