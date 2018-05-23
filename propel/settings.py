@@ -4,10 +4,12 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from propel import configuration
 
+
 SIMPLE_LOG_FORMAT = '[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s'
 Engine = None
 Session = None
 logger = None
+Executor = None
 
 
 def configure_orm():
@@ -46,5 +48,17 @@ def configure_logging():
     logger.propagate = False
 
 
+def configure_executor():
+    global Executor
+    from propel.executors.celery_executor import CeleryExecutor
+    executor_name = configuration.get('core', 'executor')
+    if executor_name == 'Celery':
+        Executor = CeleryExecutor
+    else:
+        Executor = CeleryExecutor
+    return Executor
+
+
 configure_logging()
 configure_orm()
+configure_executor()
