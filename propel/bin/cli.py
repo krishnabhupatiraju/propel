@@ -19,8 +19,8 @@ def cli_factory(cli_args):
             app = create_app()
             app.run(port=port, debug=True)
     elif subparser_name == 'celery':
-        print "Starting Celery"
+        logger.info("Starting Celery")
     elif subparser_name == 'queue':
-        print "Starting Queue"
+        logger.info("Starting RabbitMQ")
     else:
         raise NotImplementedError()
