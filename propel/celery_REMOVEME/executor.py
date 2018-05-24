@@ -1,6 +1,6 @@
 import json
 
-from propel.celery import app
+from propel.celery_REMOVEME import app
 from propel.setting import logger
 
 

@@ -1,5 +1,5 @@
 from propel import configuration 
-from propel.celery import app 
+from propel.celery_REMOVEME import app
 
 @app.task
 def schedule():

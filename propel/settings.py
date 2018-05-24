@@ -50,12 +50,12 @@ def configure_logging():
 
 def configure_executor():
     global Executor
-    from propel.executors.celery_executor import CeleryExecutor
     executor_name = configuration.get('core', 'executor')
     if executor_name == 'Celery':
+        from propel.executors.celery_executor import CeleryExecutor
         Executor = CeleryExecutor
     else:
-        Executor = CeleryExecutor
+        raise NotImplementedError('Executor type {} not defined'.format(executor_name))
     return Executor
 
 
