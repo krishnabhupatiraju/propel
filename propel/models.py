@@ -135,7 +135,7 @@ class Tweets(Base):
     user_screen_name = Column(String(1000))
     # Populated only for tweet_type = 'REPLY'
     # Derived from u'in_reply_to_status_id_str
-    in_reply_to_tweet_id = Column(String(255)) 
+    in_reply_to_tweet_id = Column(String(255))
     in_reply_to_user_id = Column(String(255))
     in_reply_to_user_screen_name = Column(String(1000))
     # Populated only for tweet_type = 'QUOTED RETWEET'

@@ -29,7 +29,7 @@ class TwitterExtract(BaseTask):
     def execute(self, task):
         """
         Capture tweets for a given Twitter user screen name
-        
+
         :param task: An dict that contains details about the task to run
         :type task: dict
         """
@@ -43,6 +43,8 @@ class TwitterExtract(BaseTask):
                           'include_rts': 'true',
                           'count': 200
                           }
+        # TODO: Fix from id. Extract value from DB.
+        from_id = None
         if from_id:
             request_params['since_id'] = from_id
         while continue_fetching:
