@@ -2,7 +2,7 @@ from flask import Flask
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 
-from propel import configuration, models
+from propel import configuration
 
 from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, Tweets
 from propel.settings import Session

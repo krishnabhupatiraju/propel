@@ -24,7 +24,7 @@ class Connections(Base):
     def __repr__(self):
         return (
             "<Connection(id={0}, name={1})>"
-            .format(self.id,self.name)
+            .format(self.id, self.name)
         )
 
 
@@ -47,7 +47,7 @@ class TaskGroups(Base):
     tasks = relationship('Tasks', backref='task_groups', secondary=task_group_members)
 
     def __repr__(self):
-        return "<Task Group(id={0}, name={1})>".format(self.id,self.name)
+        return "<Task Group(id={0}, name={1})>".format(self.id, self.name)
 
 
 class Tasks(Base):
@@ -112,8 +112,7 @@ class Tweets(Base):
     __tablename__ = 'tweets'
     tweet_id = Column(String(255), primary_key=True)
     tweet_type = Column(String(255))
-    # Derived from parent level attributes of JSON returned by 
-    # statuses/user_timeline
+    # Derived from parent level attributes of JSON returned by statuses/user_timeline
     tweet_created_at = Column(DateTime)
     text = Column(String(255))
     # Media uploaded to twitter
@@ -127,7 +126,7 @@ class Tweets(Base):
     # Derived from extended_entities.media[].video_info.variants.
     # content_type = 'video/mp4'[0].url
     media_video_urls = Column(String(1000))
-    # Derived from entities.urls[].expanded_url. Contains links that 
+    # Derived from entities.urls[].expanded_url. Contains links that
     # were part of the tweet
     expanded_urls = Column(String(1000))
     favorite_count = Column(Integer)
@@ -136,7 +135,7 @@ class Tweets(Base):
     user_screen_name = Column(String(1000))
     # Populated only for tweet_type = 'REPLY'
     # Derived from u'in_reply_to_status_id_str
-    in_reply_to_tweet_id = Column(String(255)) 
+    in_reply_to_tweet_id = Column(String(255))
     in_reply_to_user_id = Column(String(255))
     in_reply_to_user_screen_name = Column(String(1000))
     # Populated only for tweet_type = 'QUOTED RETWEET'
@@ -171,7 +170,7 @@ class Tweets(Base):
     def __repr__(self):
         return (
             "<Tweet(id={0}, text={1}, user_screen_name={2})>"
-            .format(self.id,self.text, self.user_screen_name)
+            .format(self.id, self.text, self.user_screen_name)
         )
 
     @classmethod

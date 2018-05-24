@@ -129,18 +129,16 @@ def extract_from_json(json_object, operations):
                     eval_string = "{}{}{}".format("filter_value",
                                                   condition,
                                                   value)
-                    logger.debug("Evaluating {}{}{}"
-                                  .format(filter_value,
-                                          condition,
-                                          value))
+                    logger.debug(
+                        "Evaluating {}{}{}".format(filter_value, condition, value)
+                    )
                     if eval(eval_string):
                         stack_buffer.append(stack_item)
             elif operation_type == 'index':
                 logger.debug("Performing index operation")
                 index = operator[0]
                 if index == "*":
-                    logger.debug("Received * index. Stacking all " +
-                                  "entries within list")
+                    logger.debug("Received * index. Stacking all entries within list")
                     for stack_item in stack:
                         if isinstance(stack_item, list):
                             for item in stack_item:
@@ -148,8 +146,7 @@ def extract_from_json(json_object, operations):
                 elif index.isdigit():
                     stack_buffer.append(stack[int(index)])
             else:
-                logger.warn("Unknown operation type. " +
-                             "Cannot process further")
+                logger.warn("Unknown operation type. Cannot process further")
                 return None
             stack = stack_buffer
             logger.debug("Processed JSON: {}".format(stack))
@@ -161,7 +158,7 @@ def extract_from_json(json_object, operations):
             return stack[0]
         else:
             return stack
-    except Exception as e:
+    except Exception:
         logger.warn("Exception while processing json")
         traceback.print_exc()
         return None
@@ -187,7 +184,7 @@ def extract_multiple_from_json(json_object, operations_map):
     """
     output = {}
     for name, operations in operations_map.iteritems():
-        output[name] = extract_from_json(json_object,operations=operations)
+        output[name] = extract_from_json(json_object, operations=operations)
     return output
 
 
