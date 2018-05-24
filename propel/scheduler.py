@@ -1,16 +1,15 @@
 import time
-import threading
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from propel import configuration
-from propel.models import Tasks, TaskRuns, Heartbeats
-from propel.settings import logger, Session, Executor
+from propel.models import Tasks, TaskRuns
+from propel.settings import logger, Executor
 from propel.utils.db import provide_session
-from propel.utils.general import Memoize
+from propel.utils.general import Memoize, HeartbeatMixin
 from propel.utils.state import State
 
 
-class Scheduler(object):
+class Scheduler(HeartbeatMixin):
 
     @staticmethod
     @Memoize(ttl=300)
@@ -37,6 +36,7 @@ class Scheduler(object):
         last_task_runs = self._get_last_task_runs()
         for task in tasks:
             task_last_run_ds = last_task_runs.get(task.id)
+            task_as_dict = task.as_dict()
             if task_last_run_ds:
                 next_run_ds = task_last_run_ds + timedelta(seconds=task.run_frequency_seconds)
                 if next_run_ds <= current_datetime:
@@ -44,8 +44,8 @@ class Scheduler(object):
                         "Scheduling Task {} for {}"
                         .format(task.task_name, next_run_ds)
                     )
-                    task.run_ds = next_run_ds
-                    eligible_tasks_to_run.append(task)
+                    task_as_dict['run_ds'] = next_run_ds
+                    eligible_tasks_to_run.append(task_as_dict)
                 else:
                     logger.debug(
                         "Task {} still not eligible to run for {}"
@@ -61,8 +61,8 @@ class Scheduler(object):
                     "Task {} never ran. Scheduling it for {}"
                     .format(task.task_name, next_run_ds)
                 )
-                task.run_ds = next_run_ds
-                eligible_tasks_to_run.append(task)
+                task_as_dict['run_ds'] = next_run_ds
+                eligible_tasks_to_run.append(task_as_dict)
         return eligible_tasks_to_run
 
     @provide_session
@@ -79,39 +79,19 @@ class Scheduler(object):
             tasks_to_run = self._get_eligible_tasks_to_run(current_datetime)
             for task_to_run in tasks_to_run:
                 self._insert_new_task_run_to_db(
-                    task_id=task_to_run.id,
+                    task_id=task_to_run['id'],
                     state=State.QUEUED,
-                    run_ds=task_to_run.run_ds
+                    run_ds=task_to_run['run_ds']
                 )
                 executor.execute_async(task_to_run)
+            logger.debug(
+                'Sleeping for {} seconds before trying to schedule again'
+                .format(scheduler_sleep_seconds)
+            )
             time.sleep(scheduler_sleep_seconds)
 
     def run(self):
         self.heartbeat(thread_function=self._schedule_tasks)
-
-    def heartbeat(self, thread_function, *thread_args, **thread_kwargs):
-        heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
-        thread = threading.Thread(
-            target=thread_function,
-            args=thread_args,
-            kwargs=thread_kwargs
-        )
-        thread.start()
-        heartbeat = None
-        session = Session()
-
-        while thread.isAlive():
-            time.sleep(heartbeat_seconds)
-            if not heartbeat:
-                heartbeat = Heartbeats(
-                    task_type=self.__class__.__name__,
-                    last_heartbeat_time=datetime.utcnow()
-                )
-            else:
-                heartbeat.last_heartbeat_time = datetime.utcnow()
-            session.add(heartbeat)
-            session.commit()
-            logger.info('Woot Woot')
 
 
 if __name__ == '__main__':

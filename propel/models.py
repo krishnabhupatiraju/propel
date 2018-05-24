@@ -66,6 +66,12 @@ class Tasks(Base):
             .format(self.id, self.task_args, self.task_type)
         )
 
+    def as_dict(self):
+        return {
+            column_name: getattr(self, column_name)
+            for column_name in self.__mapper__.c.keys()
+        }
+
 
 class TaskRuns(Base):
     __tablename__ = 'task_runs'

@@ -1,10 +1,11 @@
 import re
 import time
 import traceback
-
+import threading
+from datetime import datetime
 from functools import wraps
-
-from propel.settings import logger
+from propel import configuration
+from propel.settings import logger, Session
 
 
 def _parse_operation(operation):
@@ -224,3 +225,34 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
+
+
+class HeartbeatMixin(object):
+    """
+    Mixin class that helps classes run a thread while the parent process produces a heartbeat
+    """
+
+    def heartbeat(self, thread_function, *thread_args, **thread_kwargs):
+        heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
+        thread = threading.Thread(
+            target=thread_function,
+            args=thread_args,
+            kwargs=thread_kwargs
+        )
+        thread.start()
+        heartbeat = None
+        session = Session()
+
+        from propel.models import Heartbeats
+        while thread.isAlive():
+            if not heartbeat:
+                heartbeat = Heartbeats(
+                    task_type=self.__class__.__name__,
+                    last_heartbeat_time=datetime.utcnow()
+                )
+            else:
+                heartbeat.last_heartbeat_time = datetime.utcnow()
+            session.add(heartbeat)
+            session.commit()
+            logger.info('Woot Woot')
+            time.sleep(heartbeat_seconds)
