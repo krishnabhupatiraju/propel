@@ -15,14 +15,14 @@ class TwitterExtract(BaseTask):
     """
     token = None
     timeline_url = configuration.get('urls', 'twitter_user_timeline')
-    
+
     @staticmethod
     @provide_session
     def _get_token(session=None):
         twitter_conn = (session.
                         query(Connections).
                         filter_by(type='Twitter').
-                        first())    
+                        first())
         token = json.loads(twitter_conn.token)
         return token
 
@@ -57,6 +57,6 @@ class TwitterExtract(BaseTask):
                 continue_fetching = False
             Tweets.insert_to_db(tweets)
 
-        
+
 if __name__ == '__main__':
     print TwitterExtract.get('b_krishna_varma')

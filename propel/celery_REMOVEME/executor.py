@@ -1,5 +1,3 @@
-import json
-
 from propel.celery_REMOVEME import app
 from propel.setting import logger
 
@@ -19,6 +17,7 @@ def execute_command(self, command):
                 .format(self.request.id,
                         self.request.args,
                         self.request.kwargs))
+
 
 class CeleryExecutor(object):
 
