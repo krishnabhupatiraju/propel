@@ -1,4 +1,6 @@
 import re
+import signal
+import sys
 import time
 import traceback
 import threading
@@ -233,12 +235,24 @@ class HeartbeatMixin(object):
     """
 
     def heartbeat(self, thread_function, *thread_args, **thread_kwargs):
+        def kill_process(signum, frame):
+            logger.warning("Received signal {}. Exiting.".format(signum))
+            sys.exit(0)
+
+        # Handling interrupt signals
+        signal.signal(signal.SIGTERM, kill_process)
+        signal.signal(signal.SIGINT, kill_process)
+        signal.signal(signal.SIGQUIT, kill_process)
+
         heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
         thread = threading.Thread(
             target=thread_function,
             args=thread_args,
             kwargs=thread_kwargs
         )
+        # Setting is as a daemon thread so the process exits when it received
+        # a KILL signal. Otherwise sys.ext waits until the thread finishes
+        thread.daemon = True
         thread.start()
         heartbeat = None
         session = Session()
