@@ -17,4 +17,7 @@ class BaseExecutor(HeartbeatMixin):
         self.heartbeat(thread_function=task_class().execute, task=task)
 
     def execute_async(self, task):
-        return NotImplementedError
+        return NotImplementedError()
+
+    def start(self, concurrency):
+        return NotImplementedError()

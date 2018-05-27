@@ -1,4 +1,4 @@
-from propel.settings import logger
+from propel.settings import logger, Executor
 from propel.www.app import create_app
 
 
@@ -18,8 +18,14 @@ def cli_factory(cli_args):
             logger.info('Starting Webserver at port {}'.format(port))
             app = create_app()
             app.run(port=port, debug=True)
-    elif subparser_name == 'celery':
-        logger.info("Starting Celery")
+    elif subparser_name == 'executor':
+        if cli_args.get('stop'):
+            logger.info('Stopping Executor Worker'.format(cli_args.get('stop')))
+        else:
+            logger.info("Starting Executor Worker")
+            executor = Executor()
+            concurrency = cli_args.get('start')
+            executor.start(concurrency)
     elif subparser_name == 'queue':
         logger.info("Starting RabbitMQ")
     else:

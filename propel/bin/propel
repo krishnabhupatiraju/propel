@@ -23,27 +23,22 @@ if __name__ == '__main__':
         help="Stop Webserver"
     )
 
-    # Options to manage Celery
-    celery_parser = subparser.add_parser('celery', help='Manage Celery Workers')
+    # Options to manage executors
+    celery_parser = subparser.add_parser('executor', help='Manage Executor Workers')
     celery_parser.add_argument(
         '-s',
         '--start',
-        metavar=("num_workers"),
+        metavar="concurrency",
+        default=1,
         type=int,
         action="store",
-        help="Start Celery Workers"
+        help="Start Executor Worker"
     )
     celery_parser.add_argument(
         '-q',
         '--stop',
         action="store_true",
-        help="Stop Celery Worker"
-    )
-    celery_parser.add_argument(
-        '-x',
-        '--stop_all',
-        action="store_true",
-        help="Stop All Celery Workers"
+        help="Stop Executor Worker"
     )
 
     # Options to manage Queue
