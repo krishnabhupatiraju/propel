@@ -92,8 +92,3 @@ class Scheduler(HeartbeatMixin):
 
     def run(self):
         self.heartbeat(thread_function=self._schedule_tasks)
-
-
-if __name__ == '__main__':
-        # Scheduler.run()
-        print Scheduler().run()

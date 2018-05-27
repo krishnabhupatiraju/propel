@@ -58,7 +58,3 @@ class TwitterExtract(BaseTask):
             else:
                 continue_fetching = False
             Tweets.insert_to_db(tweets)
-
-
-if __name__ == '__main__':
-    print TwitterExtract.get('b_krishna_varma')
