@@ -1,4 +1,6 @@
-from propel.settings import logger, Executor
+from propel.executors import Executor
+from propel.scheduler import Scheduler
+from propel.settings import logger
 from propel.www.app import create_app
 
 
@@ -18,6 +20,13 @@ def cli_factory(cli_args):
             logger.info('Starting Webserver at port {}'.format(port))
             app = create_app()
             app.run(port=port, debug=True)
+    elif subparser_name == 'scheduler':
+        if cli_args.get('stop'):
+            logger.info('Stopping Scheduler')
+        else:
+            logger.info("Starting Scheduler")
+            scheduler = Scheduler()
+            scheduler.run()
     elif subparser_name == 'executor':
         if cli_args.get('stop'):
             logger.info('Stopping Executor Worker'.format(cli_args.get('stop')))

@@ -4,7 +4,7 @@ from propel.utils.general import HeartbeatMixin
 class BaseExecutor(HeartbeatMixin):
 
     def _get_task_class_factory(self, task):
-        task_type = task.task_type
+        task_type = task['task_type']
         if task_type == 'TwitterExtract':
             from propel.tasks.twitter_extract import TwitterExtract
             task = TwitterExtract
