@@ -1,5 +1,5 @@
 from propel.celery_REMOVEME import app
-from propel.setting import logger
+from propel.settings import logger
 
 
 @app.task(bind=True,

@@ -23,6 +23,21 @@ if __name__ == '__main__':
         help="Stop Webserver"
     )
 
+    # Options to manage Scheduler
+    scheduler_parser = subparser.add_parser('scheduler', help='Manage Scheduler')
+    scheduler_parser.add_argument(
+        '-s',
+        '--start',
+        action="store_true",
+        help="Start Scheduler"
+    )
+    scheduler_parser.add_argument(
+        '-x',
+        '--stop',
+        action="store_true",
+        help="Stop Scheduler"
+    )
+
     # Options to manage executors
     celery_parser = subparser.add_parser('executor', help='Manage Executor Workers')
     celery_parser.add_argument(

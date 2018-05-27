@@ -9,7 +9,6 @@ SIMPLE_LOG_FORMAT = '[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(m
 Engine = None
 Session = None
 logger = None
-Executor = None
 
 
 def configure_orm():
@@ -48,17 +47,6 @@ def configure_logging():
     logger.propagate = False
 
 
-def configure_executor():
-    global Executor
-    executor_name = configuration.get('core', 'executor')
-    if executor_name == 'Celery':
-        from propel.executors.celery_executor import CeleryExecutor
-        Executor = CeleryExecutor
-    else:
-        raise NotImplementedError('Executor type {} not defined'.format(executor_name))
-    return Executor
-
-
 configure_logging()
 configure_orm()
-configure_executor()
+

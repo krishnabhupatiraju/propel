@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 from propel import configuration
 from propel.models import Tasks, TaskRuns
-from propel.settings import logger, Executor
+from propel.settings import logger
+from propel.executors import Executor
 from propel.utils.db import provide_session
 from propel.utils.general import Memoize, HeartbeatMixin
 from propel.utils.state import State
