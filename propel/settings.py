@@ -49,4 +49,3 @@ def configure_logging():
 
 configure_logging()
 configure_orm()
-

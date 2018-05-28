@@ -37,24 +37,31 @@ class TwitterExtract(BaseTask):
         token = self._get_token()
         twitter_session = OAuth2Session(token=token)
         continue_fetching = True
-        request_params = {'screen_name': task['task_args'],
-                          'trim_user': 'true',
-                          'exclude_replies': 'false',
-                          'include_rts': 'true',
-                          'count': 200
-                          }
-        # TODO: Fix from id. Extract value from DB.
-        from_id = None
+        screen_name = task['task_args']
+        # count: The API puts a limit of 200 tweets per requests
+        request_params = {
+            'screen_name': screen_name,
+            'exclude_replies': 'false',
+            'include_rts': 'true',
+            'count': 200
+        }
+        logger.info("Fetching tweets for {}".format(screen_name))
+        from_id = Tweets.latest_tweet_id_for_user(screen_name=screen_name)
         if from_id:
             request_params['since_id'] = from_id
+        tweets = list()
         while continue_fetching:
-            twitter_response = twitter_session.get(self.timeline_url,
-                                                   params=request_params)
+            twitter_response = twitter_session.get(self.timeline_url, params=request_params)
             twitter_response.raise_for_status()
-            tweets = json.loads(twitter_response.text)
-            if len(tweets) > 0:
+            paginated_tweets = json.loads(twitter_response.text)
+            tweets.extend(paginated_tweets)
+            if len(paginated_tweets) > 0:
                 continue_fetching = True
-                request_params['since_id'] = max([tweet['id'] for tweet in tweets])
+                request_params['since_id'] = max(
+                    request_params.get('since_id'),
+                    max([tweet['id'] for tweet in paginated_tweets])
+                )
             else:
+                logger.info('Exhausted tweet timeline for {}'.format(screen_name))
                 continue_fetching = False
-            Tweets.insert_to_db(tweets)
+        Tweets.load_into_db(tweets)
