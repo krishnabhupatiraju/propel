@@ -1,11 +1,14 @@
 from datetime import datetime
-from sqlalchemy import (Table, Column, String, Integer,
+from sqlalchemy import (Table, Column, String, Integer, BigInteger, JSON,
                         DateTime, Enum, Boolean, ForeignKey)
+from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
+from sqlalchemy.sql import func
 
 from propel.settings import Engine
 from propel.utils.db import provide_session
+from propel.utils.general import extract_from_json
 
 Base = declarative_base()
 
@@ -110,7 +113,7 @@ class Heartbeats(Base):
 
 class Tweets(Base):
     __tablename__ = 'tweets'
-    tweet_id = Column(String(255), primary_key=True)
+    tweet_id = Column(BIGINT(unsigned=True), primary_key=True)
     tweet_type = Column(String(255))
     # Derived from parent level attributes of JSON returned by statuses/user_timeline
     tweet_created_at = Column(DateTime)
@@ -119,51 +122,52 @@ class Tweets(Base):
     # Derived from extended_entities.media[].media_url
     # In case of images it contains the url to the image
     # In case of video contains a preview image of the video
-    media_urls = Column(String(1000))
+    media_urls = Column(JSON)
     # Derived from extended_entities.media[].type.
     # Values are photo or video
-    media_types = Column(String(1000))
-    # Derived from extended_entities.media[].video_info.variants.
+    media_types = Column(JSON)
+    # Derived from extended_entities.media[].video_info.variants[].
     # content_type = 'video/mp4'[0].url
-    media_video_urls = Column(String(1000))
+    media_video_urls = Column(JSON)
     # Derived from entities.urls[].expanded_url. Contains links that
     # were part of the tweet
-    expanded_urls = Column(String(1000))
+    expanded_urls = Column(JSON)
     favorite_count = Column(Integer)
     retweet_count = Column(Integer)
-    user_id = Column(String(255))
-    user_screen_name = Column(String(1000))
+    user_id = Column(BigInteger)
+    user_screen_name = Column(String(100))
     # Populated only for tweet_type = 'REPLY'
-    # Derived from u'in_reply_to_status_id_str
-    in_reply_to_tweet_id = Column(String(255))
-    in_reply_to_user_id = Column(String(255))
-    in_reply_to_user_screen_name = Column(String(1000))
+    # Derived from 'in_reply_to_status_id'
+    in_reply_to_tweet_id = Column(BIGINT(unsigned=True))
+    in_reply_to_user_id = Column(BigInteger)
+    in_reply_to_screen_name = Column(String(100))
     # Populated only for tweet_type = 'QUOTED RETWEET'
     # Fields derived from "quoted_status" node within the json
-    quoted_tweet_id = Column(String(255))
+    quoted_tweet_id = Column(BIGINT(unsigned=True))
     quoted_created_at = Column(DateTime)
     quoted_text = Column(String(255))
-    quoted_media_urls = Column(String(1000))
-    quoted_media_types = Column(String(1000))
-    quoted_media_video_urls = Column(String(1000))
-    quoted_expanded_urls = Column(String(1000))
+    quoted_media_urls = Column(JSON)
+    quoted_media_types = Column(JSON)
+    quoted_media_video_urls = Column(JSON)
+    quoted_expanded_urls = Column(JSON)
     quoted_favorite_count = Column(Integer)
     quoted_retweet_count = Column(Integer)
-    quoted_user_id = Column(String(255))
-    quoted_user_screen_name = Column(String(1000))
+    quoted_user_id = Column(BigInteger)
+    quoted_user_screen_name = Column(String(100))
     # Populated only for tweet_type = 'RETWEET'
     # Fields derived from "retweeted_status" node within the json
-    retweet_tweet_id = Column(String(255))
+    retweet_tweet_id = Column(BIGINT(unsigned=True))
     retweet_created_at = Column(DateTime)
     retweet_text = Column(String(255))
-    retweet_media_urls = Column(String(1000))
-    retweet_media_types = Column(String(1000))
-    retweet_media_video_urls = Column(String(1000))
-    retweet_expanded_urls = Column(String(1000))
+    retweet_media_urls = Column(JSON)
+    retweet_media_types = Column(JSON)
+    retweet_media_video_urls = Column(JSON)
+    retweet_expanded_urls = Column(JSON)
     retweet_favorite_count = Column(Integer)
     retweet_retweet_count = Column(Integer)
-    retweet_user_id = Column(String(255))
-    retweet_user_screen_name = Column(String(1000))
+    retweet_user_id = Column(BigInteger)
+    retweet_user_screen_name = Column(String(100))
+    raw_tweet = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -175,10 +179,315 @@ class Tweets(Base):
 
     @classmethod
     @provide_session
-    def insert_to_db(cls, tweets_json, session=None):
+    def latest_tweet_id_for_user(cls, screen_name, session=None):
+        """
+        Get the latest tweet id stored in the database for a given user_id
+
+        :param screen_name: user_id
+        :type screen_name: String
+        """
+        return (
+            session
+            .query(func.max(cls.tweet_id))
+            .filter(cls.user_screen_name == screen_name)
+            .scalar()
+        )
+
+    @classmethod
+    @provide_session
+    def load_into_db(cls, tweets_json, session=None):
         tweets = list()
+        tweets_date_format = '%a %b %d %H:%M:%S +0000 %Y'
         for tweet_json in tweets_json:
-            tweets.append(cls(tweet_id=tweet_json['id']))
+            tweet_dict = dict()
+            tweet_dict['tweet_id'] = tweet_json['id']
+            tweet_dict['tweet_created_at'] = datetime.strptime(
+                tweet_json.get('created_at'),
+                tweets_date_format
+            )
+            tweet_dict['text'] = tweet_json.get('text')
+            tweet_dict['media_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.media_url'
+                )
+            )
+            tweet_dict['media_types'] = extract_from_json(
+                tweet_json,
+                (
+                    'extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.type'
+                )
+            )
+            tweet_dict['media_video_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.video_info'
+                    '.variants'
+                    '.[*]'
+                    '.{content_type == "video/mp4"}'
+                    '.[0]'
+                    '.url'
+                )
+            )
+            tweet_dict['expanded_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'entities'
+                    '.urls'
+                    '.[*]'
+                    '.expanded_url'
+                )
+            )
+            tweet_dict['favorite_count'] = tweet_json.get('favorite_count')
+            tweet_dict['retweet_count'] = tweet_json.get('retweet_count')
+            tweet_dict['user_id'] = extract_from_json(
+                tweet_json,
+                (
+                    'user'
+                    '.id'
+                )
+            )
+            tweet_dict['user_screen_name'] = extract_from_json(
+                tweet_json,
+                (
+                    'user'
+                    '.screen_name'
+                )
+            )
+            tweet_dict['in_reply_to_tweet_id'] = tweet_json.get('in_reply_to_status_id')
+            tweet_dict['in_reply_to_user_id'] = tweet_json.get('in_reply_to_user_id')
+            tweet_dict['in_reply_to_screen_name'] = tweet_json.get('in_reply_to_screen_name')
+            tweet_dict['quoted_tweet_id'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.id'
+                )
+            )
+
+            quoted_created_at = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.created_at'
+                )
+            )
+            if quoted_created_at:
+                tweet_dict['quoted_created_at'] = datetime.strptime(
+                    quoted_created_at,
+                    tweets_date_format
+                )
+            else:
+                tweet_dict['quoted_created_at'] = None
+
+            tweet_dict['quoted_text'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.text'
+                )
+            )
+            tweet_dict['quoted_media_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.media_url'
+                )
+            )
+            tweet_dict['quoted_media_types'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.type'
+                )
+            )
+            tweet_dict['quoted_media_video_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.video_info'
+                    '.variants'
+                    '.[*]'
+                    '.{content_type == "video/mp4"}'
+                    '.[0]'
+                    '.url'
+                )
+            )
+            tweet_dict['quoted_expanded_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.entities'
+                    '.urls'
+                    '.[*]'
+                    '.expanded_url'
+                )
+            )
+            tweet_dict['quoted_favorite_count'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.favorite_count'
+                )
+            )
+            tweet_dict['quoted_retweet_count'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.retweet_count'
+                )
+            )
+            tweet_dict['quoted_user_id'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.user'
+                    '.id'
+                )
+            )
+            tweet_dict['quoted_user_screen_name'] = extract_from_json(
+                tweet_json,
+                (
+                    'quoted_status'
+                    '.user'
+                    '.screen_name'
+                )
+            )
+            tweet_dict['retweet_tweet_id'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.id'
+                )
+            )
+
+            retweet_created_at = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.created_at'
+                )
+            )
+            if retweet_created_at:
+                tweet_dict['retweet_created_at'] = datetime.strptime(
+                    retweet_created_at,
+                    tweets_date_format
+                )
+            else:
+                tweet_dict['retweet_created_at'] = None
+
+            tweet_dict['retweet_text'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.text'
+                )
+            )
+            tweet_dict['retweet_media_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.media_url'
+                )
+            )
+            tweet_dict['retweet_media_types'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.type'
+                )
+            )
+            tweet_dict['retweet_media_video_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.extended_entities'
+                    '.media'
+                    '.[*]'
+                    '.video_info'
+                    '.variants'
+                    '.[*]'
+                    '.{content_type == "video/mp4"}'
+                    '.[0]'
+                    '.url'
+                )
+            )
+            tweet_dict['retweet_expanded_urls'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.entities'
+                    '.urls'
+                    '.[*]'
+                    '.expanded_url'
+                )
+            )
+            tweet_dict['retweet_favorite_count'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.favorite_count'
+                )
+            )
+            tweet_dict['retweet_retweet_count'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.retweet_count'
+                )
+            )
+            tweet_dict['retweet_user_id'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.user'
+                    '.id'
+                )
+            )
+            tweet_dict['retweet_user_screen_name'] = extract_from_json(
+                tweet_json,
+                (
+                    'retweeted_status'
+                    '.user'
+                    '.screen_name'
+                )
+            )
+            tweet_dict['raw_tweet'] = tweet_json
+            # Logic to derive type of tweet
+            if tweet_dict['in_reply_to_tweet_id']:
+                tweet_dict['tweet_type'] = 'Reply Tweet'
+            elif tweet_dict['quoted_tweet_id']:
+                tweet_dict['tweet_type'] = 'Quoted Tweet'
+            elif tweet_dict['retweet_tweet_id']:
+                tweet_dict['tweet_type'] = 'Retweet'
+            else:
+                tweet_dict['tweet_type'] = 'Tweet'
+            # Collecting tweet object to bulk update at the end
+            tweets.append(cls(**tweet_dict))
         session.bulk_save_objects(tweets)
 
 
