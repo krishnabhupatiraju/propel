@@ -21,7 +21,11 @@ class BaseExecutor(HeartbeatMixin):
 
         file_logger = create_file_logger(
             caller_name=self.__class__.__module__ + '.' + self.__class__.__name__,
-            log_filepath=configuration.get('log', 'tasks_log_location') + str(task['task_run_id']) + '.log'
+            log_filepath=(
+                    configuration.get('log', 'tasks_log_location')
+                    + str(task['task_run_id'])
+                    + '.log'
+            )
         )
         # Redirect sysout and syserr to file during execution of task
         with redirect_stderr(file_logger, logging.ERROR), redirect_stdout(file_logger, logger.level):
