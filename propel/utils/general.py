@@ -231,7 +231,28 @@ class HeartbeatMixin(object):
     Mixin class that helps classes run a thread while the parent process produces a heartbeat
     """
 
-    def heartbeat(self, thread_function, *thread_args, **thread_kwargs):
+    def heartbeat(self, thread_function, thread_args=None, thread_kwargs=None, logger=None):
+        """
+        Method that performs regularly sends a heartbeat while the thread is active
+
+        :param thread_function: Function to run in a thread
+        :type thread_function: function
+        :param thread_args: Args to pass to the thread
+        :type thread_args: list
+        :param thread_kwargs: kwargs to pass to thread
+        :type thread_kwargs: dict
+        :param logger: logger to output logs to
+        :type logger: logging.Logger
+        """
+        # If logger is None then use the default logger imported into the module
+        if not logger:
+            logger = globals()['logger']
+
+        if not thread_args:
+            thread_args = list()
+        if not thread_kwargs:
+            thread_kwargs = dict()
+
         def kill_process(signum, frame):
             logger.warning("Received signal {}. Exiting.".format(signum))
             sys.exit(0)
