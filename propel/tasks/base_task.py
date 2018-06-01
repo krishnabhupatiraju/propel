@@ -3,8 +3,6 @@ class BaseTask(object):
     Abstract BaseTask class that concrete subclasses will
     implement
     """
-    def __init__(self, logger):
-        self.logger = logger
 
     def execute(self, task):
         """

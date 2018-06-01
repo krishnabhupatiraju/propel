@@ -23,6 +23,7 @@ def configure_orm():
 
 
 def configure_logging():
+    print "LOGGER SET UP********************************"
     global logger
     log_level_conf = configuration.get('log', 'level')
     if log_level_conf == 'CRITICAL':

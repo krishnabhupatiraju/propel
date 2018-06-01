@@ -1,9 +1,9 @@
+import billiard
 import re
 import signal
 import sys
 import time
 import traceback
-import threading
 from datetime import datetime
 from functools import wraps
 from propel import configuration
@@ -231,30 +231,34 @@ class HeartbeatMixin(object):
     Mixin class that helps classes run a thread while the parent process produces a heartbeat
     """
 
-    def heartbeat(self, thread_function, thread_args=None, thread_kwargs=None, logger=None):
+    def heartbeat(self, process_function, process_args=None, process_kwargs=None, process_logger=None):
         """
-        Method that performs regularly sends a heartbeat while the thread is active
+        Method that performs regularly sends a heartbeat while the process is active
 
-        :param thread_function: Function to run in a thread
-        :type thread_function: function
-        :param thread_args: Args to pass to the thread
-        :type thread_args: list
-        :param thread_kwargs: kwargs to pass to thread
-        :type thread_kwargs: dict
-        :param logger: logger to output logs to
-        :type logger: logging.Logger
+        :param process_function: Function to run as a process
+        :type process_function: function
+        :param process_args: Args to pass to the process
+        :type process_args: list
+        :param process_kwargs: kwargs to pass to process
+        :type process_kwargs: dict
+        :param process_logger: logger to output subprocess logs to
+        :type process_logger: logging.Logger
         """
-        # If logger is None then use the default logger imported into the module
-        if not logger:
-            logger = globals()['logger']
-
-        if not thread_args:
-            thread_args = list()
-        if not thread_kwargs:
-            thread_kwargs = dict()
+        if not process_args:
+            process_args = list()
+        if not process_kwargs:
+            process_kwargs = dict()
 
         def kill_process(signum, frame):
-            logger.warning("Received signal {}. Exiting.".format(signum))
+            # This child_process refers to process spun up by billiard
+            child_process = frame.f_locals['process']
+            logger.warning(
+                "Received signal {}. Will kill child process PID: {} and exit."
+                .format(signum, child_process.pid, )
+            )
+            child_process.terminate()
+            # Joining to ensure we wait for the child process to terminate
+            child_process.join()
             sys.exit(0)
 
         # Handling interrupt signals
@@ -263,20 +267,23 @@ class HeartbeatMixin(object):
         signal.signal(signal.SIGQUIT, kill_process)
 
         heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
-        thread = threading.Thread(
-            target=thread_function,
-            args=thread_args,
-            kwargs=thread_kwargs
+        # Using billiard instead of multiprocessing since Celery creates a daemon process
+        # to run a task and Python doesnt allow another daemon to be spun up from that process
+        process = billiard.Process(
+            target=process_function,
+            args=process_args,
+            kwargs=process_kwargs
         )
-        # Setting is as a daemon thread so the process exits when it received
-        # a KILL signal. Otherwise sys.ext waits until the thread finishes
-        thread.daemon = True
-        thread.start()
+        # Setting is as a daemon process so the process exits when it receives
+        # a KILL signal. Otherwise sys.ext waits until the process finishes
+        process.daemon = True
+        process.start()
+        logger.info('Starting heartbeat for PID: {}'.format(process.pid))
         heartbeat = None
         session = Session()
 
         from propel.models import Heartbeats
-        while thread.isAlive():
+        while process.is_alive():
             if not heartbeat:
                 heartbeat = Heartbeats(
                     task_type=self.__class__.__name__,
@@ -286,5 +293,5 @@ class HeartbeatMixin(object):
                 heartbeat.last_heartbeat_time = datetime.utcnow()
             session.add(heartbeat)
             session.commit()
-            logger.info('Woot Woot')
+            logger.info('Woot Woot for PID: {}'.format(process.pid))
             time.sleep(heartbeat_seconds)

@@ -94,4 +94,4 @@ class Scheduler(HeartbeatMixin):
             time.sleep(scheduler_sleep_seconds)
 
     def run(self):
-        self.heartbeat(thread_function=self._schedule_tasks)
+        self.heartbeat(process_function=self._schedule_tasks)

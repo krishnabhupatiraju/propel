@@ -1,4 +1,3 @@
-import logging
 from propel import configuration
 from propel.settings import logger
 from propel.utils.general import HeartbeatMixin
@@ -27,14 +26,12 @@ class BaseExecutor(HeartbeatMixin):
                     + '.log'
             )
         )
-        # Redirect sysout and syserr to file during execution of task
-        with redirect_stderr(file_logger, logging.ERROR), redirect_stdout(file_logger, logger.level):
-            task_class = self._get_task_class_factory(task)
-            self.heartbeat(
-                thread_function=task_class(logger=file_logger).execute,
-                thread_args=[task],
-                logger=file_logger
-            )
+        task_class = self._get_task_class_factory(task)
+        self.heartbeat(
+            process_function=task_class().execute,
+            process_args=[task],
+            process_logger=file_logger
+        )
 
     def execute_async(self, task):
         return NotImplementedError()

@@ -18,7 +18,7 @@ def create_file_logger(caller_name, log_filepath):
 
 class RedirectHandler(object):
     """
-    Provide a file like interface so sysout and stderr can be redirected to logger
+    Provide a file like interface so stdout and stderr can be redirected to logger
     """
     def __init__(self, logger, level):
         self.logger = logger
@@ -40,16 +40,20 @@ class RedirectHandler(object):
 @contextmanager
 def redirect_stderr(to_logger, as_level):
     try:
+        print "IN redirect_stderr*********************************************"
         sys.stderr = RedirectHandler(logger=to_logger, level=as_level)
         yield
     finally:
+        print "IN redirect_stderr REVERTING*********************************************"
         sys.stderr = sys.__stderr__
 
 
 @contextmanager
 def redirect_stdout(to_logger, as_level):
     try:
+        print "IN redirect_stdout*********************************************"
         sys.stdout = RedirectHandler(logger=to_logger, level=as_level)
         yield
     finally:
+        print "IN redirect_stdout REVERTING*********************************************"
         sys.stdout = sys.__stdout__

@@ -5,6 +5,7 @@ from requests_oauthlib import OAuth2Session
 from propel import configuration
 from propel.tasks.base_task import BaseTask
 from propel.models import Connections, Tweets
+from propel.settings import logger
 from propel.utils.db import provide_session
 
 
@@ -14,9 +15,6 @@ class TwitterExtract(BaseTask):
     """
     token = None
     timeline_url = configuration.get('urls', 'twitter_user_timeline')
-
-    def __init__(self, *args, **kwargs):
-        super(TwitterExtract, self).__init__(*args, **kwargs)
 
     @staticmethod
     @provide_session
@@ -35,7 +33,7 @@ class TwitterExtract(BaseTask):
         :param task: An dict that contains details about the task to run
         :type task: dict
         """
-        self.logger.info('Getting Twitter token')
+        logger.info('Getting Twitter token')
         token = self._get_token()
         twitter_session = OAuth2Session(token=token)
         continue_fetching = True
@@ -47,7 +45,7 @@ class TwitterExtract(BaseTask):
             'include_rts': 'true',
             'count': 200
         }
-        self.logger.info("Fetching tweets for {}".format(screen_name))
+        logger.info("Fetching tweets for {}".format(screen_name))
         from_id = Tweets.latest_tweet_id_for_user(screen_name=screen_name)
         if from_id:
             request_params['since_id'] = from_id
@@ -64,10 +62,6 @@ class TwitterExtract(BaseTask):
                     max([tweet['id'] for tweet in paginated_tweets])
                 )
             else:
-                self.logger.info('Exhausted tweet timeline for {}'.format(screen_name))
+                logger.info('Exhausted tweet timeline for {}'.format(screen_name))
                 continue_fetching = False
         Tweets.load_into_db(tweets)
-        # TODO: DELETE ME
-        self.logger.info("SLEEPING")
-        import time
-        time.sleep(20)
