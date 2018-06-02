@@ -232,7 +232,13 @@ class HeartbeatMixin(object):
     Mixin class that helps classes run a thread while the parent process produces a heartbeat
     """
 
-    def heartbeat(self, process_function, process_args=None, process_kwargs=None, process_log_file=None):
+    def heartbeat(
+            self,
+            process_function,
+            process_args=None,
+            process_kwargs=None,
+            process_log_file=None
+    ):
         """
         Method that performs regularly sends a heartbeat while the process is active
 
@@ -303,5 +309,5 @@ class HeartbeatMixin(object):
                 heartbeat.last_heartbeat_time = datetime.utcnow()
             session.add(heartbeat)
             session.commit()
-            logger.info('Woot Woot for PID: {}'.format(process.pid))
+            logger.info('Heartbeat for PID: {}'.format(process.pid))
             time.sleep(heartbeat_seconds)
