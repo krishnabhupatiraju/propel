@@ -68,9 +68,10 @@ class Scheduler(HeartbeatMixin):
 
     @provide_session
     def _insert_new_task_run_to_db(self, session=None, **kwargs):
-        task = TaskRuns(**kwargs)
-        session.add(task)
+        task_run = TaskRuns(**kwargs)
+        session.add(task_run)
         session.commit()
+        return task_run.id
 
     def _schedule_tasks(self):
         scheduler_sleep_seconds = int(configuration.get('core', 'scheduler_sleep_seconds'))
@@ -79,11 +80,12 @@ class Scheduler(HeartbeatMixin):
             current_datetime = datetime.utcnow()
             tasks_to_run = self._get_eligible_tasks_to_run(current_datetime)
             for task_to_run in tasks_to_run:
-                self._insert_new_task_run_to_db(
+                task_run_id = self._insert_new_task_run_to_db(
                     task_id=task_to_run['id'],
                     state=State.QUEUED,
                     run_ds=task_to_run['run_ds']
                 )
+                task_to_run['task_run_id'] = task_run_id
                 executor.execute_async(task_to_run)
             logger.debug(
                 'Sleeping for {} seconds before trying to schedule again'
@@ -92,4 +94,4 @@ class Scheduler(HeartbeatMixin):
             time.sleep(scheduler_sleep_seconds)
 
     def run(self):
-        self.heartbeat(thread_function=self._schedule_tasks)
+        self.heartbeat(process_function=self._schedule_tasks)

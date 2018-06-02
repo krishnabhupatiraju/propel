@@ -1,3 +1,5 @@
+from propel import configuration
+from propel.settings import logger
 from propel.utils.general import HeartbeatMixin
 
 
@@ -13,8 +15,18 @@ class BaseExecutor(HeartbeatMixin):
         return task
 
     def execute(self, task):
+        logger.info('Running Task {}'.format(task))
+        process_log_file = (
+                configuration.get('log', 'tasks_log_location')
+                + str(task['task_run_id'])
+                + '.log'
+        )
         task_class = self._get_task_class_factory(task)
-        self.heartbeat(thread_function=task_class().execute, task=task)
+        self.heartbeat(
+            process_function=task_class().execute,
+            process_args=[task],
+            process_log_file=process_log_file
+        )
 
     def execute_async(self, task):
         return NotImplementedError()
