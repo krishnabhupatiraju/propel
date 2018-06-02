@@ -1,59 +1,82 @@
 import logging
-import sys
 from contextlib import contextmanager
-from propel.settings import logger, SIMPLE_LOG_FORMAT
+from propel import configuration
+
+log_level = None
+formatter = None
+console_handler = None
+logger = None
 
 
-def create_file_logger(caller_name, log_filepath):
-    file_logger = logger.getChild(caller_name)
-    file_logger.setLevel(logger.level)
+def configure_level():
+    global log_level
+    log_level_conf = configuration.get('log', 'level')
+    if log_level_conf == 'CRITICAL':
+        log_level = logging.CRITICAL
+    elif log_level_conf == 'ERROR':
+        log_level = logging.ERROR
+    elif log_level_conf == 'WARNING':
+        log_level = logging.WARNING
+    elif log_level_conf == 'INFO':
+        log_level = logging.INFO
+    elif log_level_conf == 'DEBUG':
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.NOTSET
+
+
+def configure_formatter():
+    log_format = '[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s'
+    global formatter
+    formatter = logging.Formatter(log_format)
+
+
+def configure_console_handler():
+    global console_handler
+    global log_level
+    global formatter
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+
+
+def configure_logger():
+    global logger
+    global console_handler
+    global log_level
+    logger = logging.getLogger(__name__)
+    logger.setLevel(log_level)
+    logger.addHandler(console_handler)
+    logger.propagate = False
+
+
+def __create_file_handler(log_filepath):
+    global log_level
+    global formatter
     file_handler = logging.FileHandler(filename=log_filepath)
-    file_handler.setLevel(logger.level)
-    formatter = logging.Formatter(SIMPLE_LOG_FORMAT)
+    file_handler.setLevel(log_level)
     file_handler.setFormatter(formatter)
-    file_logger.addHandler(file_handler)
-    file_logger.propagate = False
-    return file_logger
-
-
-class RedirectHandler(object):
-    """
-    Provide a file like interface so stdout and stderr can be redirected to logger
-    """
-    def __init__(self, logger, level):
-        self.logger = logger
-        self.level = level
-        self._buffer = str()
-
-    def write(self, message):
-        self._buffer += message
-        if message.endswith("\n"):
-            self.logger.log(self.level, self._buffer)
-            self._buffer = str()
-
-    def flush(self):
-        if len(self._buffer) > 0:
-            self.logger.log(self.level, self._buffer)
-            self._buffer = str()
+    return file_handler
 
 
 @contextmanager
-def redirect_stderr(to_logger, as_level):
+def enable_file_handler_on_logger(log_filepath):
+    global logger
+    global console_handler
+    file_handler = None
     try:
-        print "IN redirect_stderr*********************************************"
-        sys.stderr = RedirectHandler(logger=to_logger, level=as_level)
+        file_handler = __create_file_handler(log_filepath)
+        logger.addHandler(file_handler)
+        logger.removeHandler(console_handler)
         yield
     finally:
-        print "IN redirect_stderr REVERTING*********************************************"
-        sys.stderr = sys.__stderr__
+        if file_handler in logger.handlers:
+            logger.removeHandler(file_handler)
+        if console_handler not in logger.handlers:
+            logger.addHandler(console_handler)
 
 
-@contextmanager
-def redirect_stdout(to_logger, as_level):
-    try:
-        print "IN redirect_stdout*********************************************"
-        sys.stdout = RedirectHandler(logger=to_logger, level=as_level)
-        yield
-    finally:
-        print "IN redirect_stdout REVERTING*********************************************"
-        sys.stdout = sys.__stdout__
+configure_level()
+configure_formatter()
+configure_console_handler()
+configure_logger()

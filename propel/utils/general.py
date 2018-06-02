@@ -8,6 +8,7 @@ from datetime import datetime
 from functools import wraps
 from propel import configuration
 from propel.settings import logger, Session
+from propel.utils.log import enable_file_handler_on_logger
 
 
 def _parse_operation(operation):
@@ -231,7 +232,7 @@ class HeartbeatMixin(object):
     Mixin class that helps classes run a thread while the parent process produces a heartbeat
     """
 
-    def heartbeat(self, process_function, process_args=None, process_kwargs=None, process_logger=None):
+    def heartbeat(self, process_function, process_args=None, process_kwargs=None, process_log_file=None):
         """
         Method that performs regularly sends a heartbeat while the process is active
 
@@ -241,8 +242,8 @@ class HeartbeatMixin(object):
         :type process_args: list
         :param process_kwargs: kwargs to pass to process
         :type process_kwargs: dict
-        :param process_logger: logger to output subprocess logs to
-        :type process_logger: logging.Logger
+        :param process_log_file: File to which process output is logged
+        :type process_log_file: str
         """
         if not process_args:
             process_args = list()
@@ -250,7 +251,8 @@ class HeartbeatMixin(object):
             process_kwargs = dict()
 
         def kill_process(signum, frame):
-            # This child_process refers to process spun up by billiard
+            # This child_process refers to process spun up by billiard.
+            # See process variable below
             child_process = frame.f_locals['process']
             logger.warning(
                 "Received signal {}. Will kill child process PID: {} and exit."
@@ -266,11 +268,18 @@ class HeartbeatMixin(object):
         signal.signal(signal.SIGINT, kill_process)
         signal.signal(signal.SIGQUIT, kill_process)
 
-        heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
+        # If a logger is defined then redirect stdout and stderr to the logger
+        modified_process_function = process_function
+        if process_log_file:
+            def output_redirected_process_logger(*args, **kwargs):
+                with enable_file_handler_on_logger(log_filepath=process_log_file):
+                    return process_function(*args, **kwargs)
+            modified_process_function = output_redirected_process_logger
+
         # Using billiard instead of multiprocessing since Celery creates a daemon process
         # to run a task and Python doesnt allow another daemon to be spun up from that process
         process = billiard.Process(
-            target=process_function,
+            target=modified_process_function,
             args=process_args,
             kwargs=process_kwargs
         )
@@ -282,6 +291,7 @@ class HeartbeatMixin(object):
         heartbeat = None
         session = Session()
 
+        heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
         from propel.models import Heartbeats
         while process.is_alive():
             if not heartbeat:
