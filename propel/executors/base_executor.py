@@ -23,9 +23,9 @@ class BaseExecutor(HeartbeatMixin):
         )
         task_class = self._get_task_class_factory(task)
         self.heartbeat(
-            process_function=task_class().execute,
-            process_args=[task],
-            process_log_file=process_log_file
+            thread_function=task_class().execute,
+            thread_args=[task],
+            log_file=process_log_file
         )
 
     def execute_async(self, task):
