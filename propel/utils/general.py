@@ -1,14 +1,16 @@
 import billiard
+import os
 import re
 import signal
 import sys
 import time
+import threading
 import traceback
 from datetime import datetime
 from functools import wraps
 from propel import configuration
 from propel.settings import logger, Session
-from propel.utils.log import enable_file_handler_on_logger
+from propel.utils.log import reset_logger
 
 
 def _parse_operation(operation):
@@ -234,72 +236,140 @@ class HeartbeatMixin(object):
 
     def heartbeat(
             self,
-            process_function,
-            process_args=None,
-            process_kwargs=None,
-            process_log_file=None
+            thread_function,
+            thread_args=None,
+            thread_kwargs=None,
+            log_file=None
     ):
         """
-        Method that performs regularly sends a heartbeat while the process is active
+        Method that runs process_function through "multiprocessing" and sends regular heartbeat
+        If "process_log_file" is defined log output is redirected to process_log_file
 
-        :param process_function: Function to run as a process
-        :type process_function: function
-        :param process_args: Args to pass to the process
-        :type process_args: list
-        :param process_kwargs: kwargs to pass to process
-        :type process_kwargs: dict
-        :param process_log_file: File to which process output is logged
-        :type process_log_file: str
+        :param thread_function: Function to run as a thread with the heartbeat process
+        :type thread_function: function
+        :param thread_args: Args to pass to the thread
+        :type thread_args: list
+        :param thread_kwargs: kwargs to pass to thread
+        :type thread_kwargs: dict
+        :param log_file: File to which process output is logged
+        :type log_file: str
         """
-        if not process_args:
-            process_args = list()
-        if not process_kwargs:
-            process_kwargs = dict()
 
-        def kill_process(signum, frame):
-            # This child_process refers to process spun up by billiard.
-            # See process variable below
-            child_process = frame.f_locals['process']
+        def kill_heartbeat_process(signum, frame):
             logger.warning(
-                "Received signal {}. Will kill child process PID: {} and exit."
-                .format(signum, child_process.pid, )
+                "Received signal {}. Will kill heartbeat process with PID: {} and exit."
+                .format(signum, heartbeat_process.pid, )
             )
-            child_process.terminate()
+            heartbeat_process.terminate()
             # Joining to ensure we wait for the child process to terminate
-            child_process.join()
+            heartbeat_process.join()
             sys.exit(0)
 
         # Handling interrupt signals
-        signal.signal(signal.SIGTERM, kill_process)
-        signal.signal(signal.SIGINT, kill_process)
-        signal.signal(signal.SIGQUIT, kill_process)
+        signal.signal(signal.SIGTERM, kill_heartbeat_process)
+        signal.signal(signal.SIGINT, kill_heartbeat_process)
+        signal.signal(signal.SIGQUIT, kill_heartbeat_process)
 
-        # If a logger is defined then redirect stdout and stderr to the logger
-        modified_process_function = process_function
-        if process_log_file:
-            def output_redirected_process_logger(*args, **kwargs):
-                with enable_file_handler_on_logger(log_filepath=process_log_file):
-                    return process_function(*args, **kwargs)
-            modified_process_function = output_redirected_process_logger
+        # Using billiard instead of multiprocessing since Celery creates a daemon process
+        # to run a task and Python doesnt allow another daemon to be spun up from a
+        # daemon process
+        heartbeat_process = billiard.Process(
+            target=self._heartbeat_with_logger_redirect,
+            args=(thread_function, thread_args, thread_kwargs, log_file)
+        )
+        # # Setting is as a daemon process so the process exits when it receives
+        # # a KILL signal. Otherwise sys.ext waits until the process finishes
+        # heartbeat_process.daemon = True
+        heartbeat_process.start()
+        logger.info('Starting heartbeat process. PID: {}'.format(heartbeat_process.pid))
+        heartbeat_process.join()
+
+    def _heartbeat_with_logger_redirect(
+            self,
+            thread_function,
+            thread_args=None,
+            thread_kwargs=None,
+            log_file=None
+    ):
+        """
+        Helper method that redirects output before calling the _run_heartbeat method
+
+        :param thread_function: Function to run as a process
+        :type thread_function: function
+        :param thread_args: Args to pass to the process
+        :type thread_args: list
+        :param thread_kwargs: kwargs to pass to process
+        :type thread_kwargs: dict
+        :param log_file: File to which process output is logged
+        :type log_file: str
+        """
+
+        if log_file:
+            with open(log_file, 'a') as log_file_handle:
+                try:
+                    logger.info("Redirecting output to {}".format(log_file))
+                    sys.stdout = log_file_handle
+                    sys.stderr = log_file_handle
+                    # Resetting logger so it is configured to output to log_file
+                    # See https://stackoverflow.com/questions/22105465/
+                    # how-can-i-temporarily-redirect-the-output-of-logging-in-python
+                    # /50652143#50652143
+                    reset_logger()
+                    self._run_heartbeat(thread_function, thread_args, thread_kwargs)
+                except Exception as e:
+                    logger.exception(e)
+                    raise
+        else:
+            self._run_heartbeat(thread_function, thread_args, thread_kwargs)
+
+    def _run_heartbeat(
+            self,
+            thread_function,
+            thread_args=None,
+            thread_kwargs=None
+    ):
+        """
+        Helper method that runs thread_function through "threading" and sends regular heartbeat
+
+        :param thread_function: Function to run as a thread
+        :type thread_function: function
+        :param thread_args: Args to pass to the thread
+        :type thread_args: list
+        :param thread_kwargs: kwargs to pass to thread
+        :type thread_kwargs: dict
+        """
+
+        def poison_pill(signum, frame):
+            logger.warning("Received signal {}. Taking poison pill".format(signum))
+            sys.exit(0)
+
+        # Handling interrupt signals
+        signal.signal(signal.SIGTERM, poison_pill)
+        signal.signal(signal.SIGINT, poison_pill)
+        signal.signal(signal.SIGQUIT, poison_pill)
+
+        if not thread_args:
+            thread_args = list()
+        if not thread_kwargs:
+            thread_kwargs = dict()
 
         # Using billiard instead of multiprocessing since Celery creates a daemon process
         # to run a task and Python doesnt allow another daemon to be spun up from that process
-        process = billiard.Process(
-            target=modified_process_function,
-            args=process_args,
-            kwargs=process_kwargs
+        thread = threading.Thread(
+            target=thread_function,
+            args=thread_args,
+            kwargs=thread_kwargs
         )
-        # Setting is as a daemon process so the process exits when it receives
-        # a KILL signal. Otherwise sys.ext waits until the process finishes
-        process.daemon = True
-        process.start()
-        logger.info('Starting heartbeat for PID: {}'.format(process.pid))
+        # Setting is as a daemon thread so the process can exit when it receives
+        # a KILL signal. Otherwise sys.ext waits until the thread to finish.
+        thread.daemon = True
+        thread.start()
         heartbeat = None
         session = Session()
 
         heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
         from propel.models import Heartbeats
-        while process.is_alive():
+        while thread.isAlive():
             if not heartbeat:
                 heartbeat = Heartbeats(
                     task_type=self.__class__.__name__,
@@ -309,5 +379,5 @@ class HeartbeatMixin(object):
                 heartbeat.last_heartbeat_time = datetime.utcnow()
             session.add(heartbeat)
             session.commit()
-            logger.info('Heartbeat for PID: {}'.format(process.pid))
+            logger.info('Woot Woot from PID: {}'.format(os.getpid()))
             time.sleep(heartbeat_seconds)

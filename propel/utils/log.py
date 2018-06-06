@@ -1,10 +1,9 @@
 import logging
-from contextlib import contextmanager
+import sys
 from propel import configuration
 
 log_level = None
 formatter = None
-console_handler = None
 logger = None
 
 
@@ -31,52 +30,36 @@ def configure_formatter():
     formatter = logging.Formatter(log_format)
 
 
-def configure_console_handler():
-    global console_handler
+def get_console_handler():
     global log_level
     global formatter
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
+    return console_handler
 
 
 def configure_logger():
     global logger
-    global console_handler
     global log_level
     logger = logging.getLogger(__name__)
     logger.setLevel(log_level)
-    logger.addHandler(console_handler)
+    logger.addHandler(get_console_handler())
     logger.propagate = False
 
 
-def __create_file_handler(log_filepath):
-    global log_level
-    global formatter
-    file_handler = logging.FileHandler(filename=log_filepath)
-    file_handler.setLevel(log_level)
-    file_handler.setFormatter(formatter)
-    return file_handler
-
-
-@contextmanager
-def enable_file_handler_on_logger(log_filepath):
+def reset_logger():
+    """
+    Reset logger is used when trying to redirect logged output
+    """
     global logger
-    global console_handler
-    file_handler = None
-    try:
-        file_handler = __create_file_handler(log_filepath)
-        logger.addHandler(file_handler)
-        logger.removeHandler(console_handler)
-        yield
-    finally:
-        if file_handler in logger.handlers:
-            logger.removeHandler(file_handler)
-        if console_handler not in logger.handlers:
-            logger.addHandler(console_handler)
+    # Making a list so we dont mutate the list we are iterating on
+    handlers = list(logger.handlers)
+    for handler in handlers:
+        logger.removeHandler(handler)
+    configure_logger()
 
 
 configure_level()
 configure_formatter()
-configure_console_handler()
 configure_logger()
