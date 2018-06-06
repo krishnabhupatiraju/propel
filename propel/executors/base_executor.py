@@ -16,7 +16,7 @@ class BaseExecutor(HeartbeatMixin):
 
     def execute(self, task):
         logger.info('Running Task {}'.format(task))
-        process_log_file = (
+        log_file = (
                 configuration.get('log', 'tasks_log_location')
                 + str(task['task_run_id'])
                 + '.log'
@@ -25,7 +25,7 @@ class BaseExecutor(HeartbeatMixin):
         self.heartbeat(
             thread_function=task_class().execute,
             thread_args=[task],
-            log_file=process_log_file
+            log_file=log_file
         )
 
     def execute_async(self, task):
