@@ -319,6 +319,10 @@ class HeartbeatMixin(object):
                 except Exception as e:
                     logger.exception(e)
                     raise
+                finally:
+                    sys.stdout = sys.__stdout__
+                    sys.stderr = sys.__stderr__
+                    reset_logger()
         else:
             self._run_heartbeat(thread_function, thread_args, thread_kwargs)
 
