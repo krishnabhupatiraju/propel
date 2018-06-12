@@ -12,6 +12,11 @@ class TweetsView(ModelView):
     page_size = 50
     column_exclude_list = ['raw_tweet', ]
     can_export = True
+    column_filters = [
+        'tweet_created_at',
+        'user_screen_name',
+        'tweet_type'
+    ]
 
 
 def create_app():
