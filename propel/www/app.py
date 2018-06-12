@@ -8,6 +8,12 @@ from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, 
 from propel.settings import Session
 
 
+class TweetsView(ModelView):
+    page_size = 50
+    column_exclude_list = ['raw_tweet', ]
+    can_export = True
+
+
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = configuration.get('flask', 'secret')
@@ -17,7 +23,7 @@ def create_app():
     admin.add_view(ModelView(Tasks, Session))
     admin.add_view(ModelView(TaskRuns, Session))
     admin.add_view(ModelView(Heartbeats, Session))
-    admin.add_view(ModelView(Tweets, Session))
+    admin.add_view(TweetsView(Tweets, Session))
 
     # After the request response cycle is complete removing the scoped session.
     # Otherwise data added to the DB but external processes (like scheduler or worker )
