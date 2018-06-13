@@ -17,6 +17,27 @@ class TweetsView(ModelView):
         'user_screen_name',
         'tweet_type'
     ]
+    column_list = [
+        'tweet_created_at',
+        'user_screen_name',
+        'tweet_type',
+        'text',
+        'favorite_count',
+        'retweet_count',
+        'quoted_text',
+        'expanded_urls',
+        'media_urls',
+        'media_types'
+    ]
+    # Adding rest of the columns to the end of the columns list
+    column_list.extend(
+        [
+            column.name
+            for column in Tweets.__table__.columns._all_columns
+            if column.name not in column_list
+        ]
+    )
+    can_create = False
 
 
 def create_app():
