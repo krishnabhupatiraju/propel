@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, Markup
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 
@@ -18,6 +18,7 @@ class TweetsView(ModelView):
         'tweet_type'
     ]
     column_list = [
+        'tweet_id',
         'tweet_created_at',
         'user_screen_name',
         'tweet_type',
@@ -38,6 +39,15 @@ class TweetsView(ModelView):
         ]
     )
     can_create = False
+
+    def create_anchor_link(view, context, model, name):
+        return Markup(
+            "<a href='https://twitter.com/i/web/status/{}' target='_blank'>Link</a>"
+            .format(getattr(model, name))
+        )
+
+    column_formatters = dict(tweet_id=create_anchor_link)
+    # list_template = "tweets.html"
 
 
 def create_app():
