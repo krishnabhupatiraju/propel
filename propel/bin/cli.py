@@ -1,3 +1,4 @@
+import subprocess
 from propel.executors import Executor
 from propel.scheduler import Scheduler
 from propel.settings import logger
@@ -29,13 +30,23 @@ def cli_factory(cli_args):
             scheduler.run()
     elif subparser_name == 'executor':
         if cli_args.get('stop'):
-            logger.info('Stopping Executor Worker'.format(cli_args.get('stop')))
+            logger.info('Stopping Executor Worker')
         else:
             logger.info("Starting Executor Worker")
             executor = Executor()
             concurrency = cli_args.get('start')
             executor.start(concurrency)
     elif subparser_name == 'queue':
-        logger.info("Starting RabbitMQ")
+        if cli_args.get('stop'):
+            logger.info("Stopping RabbitMQ")
+        else:
+            logger.info("Starting RabbitMQ")
+            rabbitmq_cmd = ['rabbitmq-server']
+            rabbitmq_process = subprocess.Popen(args=rabbitmq_cmd)
+            logger.info(
+                'Started RabbitMQ with PID: {}'
+                .format(rabbitmq_process.pid)
+            )
+            rabbitmq_process.communicate()
     else:
         raise NotImplementedError()
