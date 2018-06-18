@@ -37,7 +37,7 @@ class Scheduler(HeartbeatMixin):
         last_task_runs = self._get_last_task_runs()
         for task in tasks:
             task_last_run_ds = last_task_runs.get(task.id)
-            task_as_dict = task.as_dict()
+            task_run_params = task.as_dict()
             if task_last_run_ds:
                 next_run_ds = task_last_run_ds + timedelta(seconds=task.run_frequency_seconds)
                 if next_run_ds <= current_datetime:
@@ -45,8 +45,8 @@ class Scheduler(HeartbeatMixin):
                         "Scheduling Task {} for {}"
                         .format(task.task_name, next_run_ds)
                     )
-                    task_as_dict['run_ds'] = next_run_ds
-                    eligible_tasks_to_run.append(task_as_dict)
+                    task_run_params['run_ds'] = next_run_ds
+                    eligible_tasks_to_run.append(task_run_params)
                 else:
                     logger.debug(
                         "Task {} still not eligible to run for {}"
@@ -62,8 +62,8 @@ class Scheduler(HeartbeatMixin):
                     "Task {} never ran. Scheduling it for {}"
                     .format(task.task_name, next_run_ds)
                 )
-                task_as_dict['run_ds'] = next_run_ds
-                eligible_tasks_to_run.append(task_as_dict)
+                task_run_params['run_ds'] = next_run_ds
+                eligible_tasks_to_run.append(task_run_params)
         return eligible_tasks_to_run
 
     @provide_session
@@ -79,14 +79,14 @@ class Scheduler(HeartbeatMixin):
         while True:
             current_datetime = datetime.utcnow()
             tasks_to_run = self._get_eligible_tasks_to_run(current_datetime)
-            for task_to_run in tasks_to_run:
+            for task_run_params in tasks_to_run:
                 task_run_id = self._insert_new_task_run_to_db(
-                    task_id=task_to_run['id'],
+                    task_id=task_run_params['id'],
                     state=State.QUEUED,
-                    run_ds=task_to_run['run_ds']
+                    run_ds=task_run_params['run_ds']
                 )
-                task_to_run['task_run_id'] = task_run_id
-                executor.execute_async(task_to_run)
+                task_run_params['task_run_id'] = task_run_id
+                executor.execute_async(task_run_params)
             logger.debug(
                 'Sleeping for {} seconds before trying to schedule again'
                 .format(scheduler_sleep_seconds)
