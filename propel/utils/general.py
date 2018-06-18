@@ -239,7 +239,8 @@ class HeartbeatMixin(object):
             thread_function,
             thread_args=None,
             thread_kwargs=None,
-            log_file=None
+            log_file=None,
+            heartbeat_model_kwargs=None
     ):
         """
         Method that runs process_function through "multiprocessing" and sends regular heartbeat
@@ -253,6 +254,8 @@ class HeartbeatMixin(object):
         :type thread_kwargs: dict
         :param log_file: File to which process output is logged
         :type log_file: str
+        :param heartbeat_model_kwargs: kwargs that are passed when creating heartbeat entry
+        :type heartbeat_model_kwargs: dict
         """
 
         def kill_heartbeat_process(signum, frame):
@@ -275,7 +278,7 @@ class HeartbeatMixin(object):
         # daemon process
         heartbeat_process = billiard.Process(
             target=self._heartbeat_with_logger_redirect,
-            args=(thread_function, thread_args, thread_kwargs, log_file)
+            args=(thread_function, thread_args, thread_kwargs, log_file, heartbeat_model_kwargs)
         )
         # # Setting is as a daemon process so the process exits when it receives
         # # a KILL signal. Otherwise sys.ext waits until the process finishes
@@ -289,7 +292,8 @@ class HeartbeatMixin(object):
             thread_function,
             thread_args=None,
             thread_kwargs=None,
-            log_file=None
+            log_file=None,
+            heartbeat_model_kwargs=None
     ):
         """
         Helper method that redirects output before calling the _run_heartbeat method
@@ -302,6 +306,8 @@ class HeartbeatMixin(object):
         :type thread_kwargs: dict
         :param log_file: File to which process output is logged
         :type log_file: str
+        :param heartbeat_model_kwargs: kwargs that are passed when creating heartbeat entry
+        :type heartbeat_model_kwargs: dict
         """
 
         if log_file:
@@ -315,7 +321,12 @@ class HeartbeatMixin(object):
                     # how-can-i-temporarily-redirect-the-output-of-logging-in-python
                     # /50652143#50652143
                     reset_logger()
-                    self._run_heartbeat(thread_function, thread_args, thread_kwargs)
+                    self._run_heartbeat(
+                        thread_function,
+                        thread_args,
+                        thread_kwargs,
+                        heartbeat_model_kwargs
+                    )
                 except Exception as e:
                     logger.exception(e)
                     raise
@@ -330,7 +341,8 @@ class HeartbeatMixin(object):
             self,
             thread_function,
             thread_args=None,
-            thread_kwargs=None
+            thread_kwargs=None,
+            heartbeat_model_kwargs=None
     ):
         """
         Helper method that runs thread_function through "threading" and sends regular heartbeat
@@ -341,6 +353,8 @@ class HeartbeatMixin(object):
         :type thread_args: list
         :param thread_kwargs: kwargs to pass to thread
         :type thread_kwargs: dict
+        :param heartbeat_model_kwargs: kwargs that are passed when creating heartbeat entry
+        :type heartbeat_model_kwargs: dict
         """
 
         def poison_pill(signum, frame):
@@ -377,7 +391,8 @@ class HeartbeatMixin(object):
             if not heartbeat:
                 heartbeat = Heartbeats(
                     task_type=self.__class__.__name__,
-                    last_heartbeat_time=datetime.utcnow()
+                    last_heartbeat_time=datetime.utcnow(),
+                    **heartbeat_model_kwargs if heartbeat_model_kwargs else dict()
                 )
             else:
                 heartbeat.last_heartbeat_time = datetime.utcnow()

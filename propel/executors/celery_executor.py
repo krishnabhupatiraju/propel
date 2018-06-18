@@ -10,16 +10,16 @@ celery_app = Celery(__name__, broker=celery_broker)
 
 
 @celery_app.task
-def execute_celery_task(task):
-    BaseExecutor().execute(task)
+def execute_celery_task(task_run_params):
+    BaseExecutor().execute(task_run_params)
 
 
 class CeleryExecutor(BaseExecutor):
 
-    def execute_async(self, task):
-        logger.info('Adding task {} to celery queue'.format(task))
-        execute_celery_task.apply_async(args=[task, ])
-        logger.debug('Task {} should run soon'.format(task))
+    def execute_async(self, task_run_params):
+        logger.info('Adding TaskRun {} to celery queue'.format(task_run_params))
+        execute_celery_task.apply_async(args=[task_run_params, ])
+        logger.debug('TaskRun {} should run soon'.format(task_run_params))
 
     def start(self, concurrency):
         start_worker_cmd = [

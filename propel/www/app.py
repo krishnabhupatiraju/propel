@@ -50,6 +50,13 @@ class TweetsView(ModelView):
     # list_template = "tweets.html"
 
 
+class TaskRunsView(ModelView):
+    column_list = [
+            column.name
+            for column in TaskRuns.__table__.columns._all_columns
+        ]
+
+
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = configuration.get('flask', 'secret')
@@ -57,7 +64,7 @@ def create_app():
     admin.add_view(ModelView(Connections, Session))
     admin.add_view(ModelView(TaskGroups, Session))
     admin.add_view(ModelView(Tasks, Session))
-    admin.add_view(ModelView(TaskRuns, Session))
+    admin.add_view(TaskRunsView(TaskRuns, Session))
     admin.add_view(ModelView(Heartbeats, Session))
     admin.add_view(TweetsView(Tweets, Session))
 
