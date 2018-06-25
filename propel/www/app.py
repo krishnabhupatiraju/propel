@@ -71,6 +71,14 @@ class TweetsCardView(BaseView):
             tweet_attributes.append(tweet.favorite_count)
             tweet_attributes.append(tweet.tweet_id)
             tweets[tweet.user_screen_name].append(tweet_attributes)
+        # Sorting tweets based on favorite_count
+        for user_screen_name, tweet_attributes in tweets.items():
+            tweets[user_screen_name] = sorted(
+                tweet_attributes,
+                key=lambda x: int(x[1]),
+                reverse=True
+            )
+            print tweets[user_screen_name]
         return self.render('tweets_card_view.html', tweets=tweets)
 
 

@@ -17,11 +17,13 @@
             {% for j in range(user_screen_names|length)%}
               {% if tweets[user_screen_names[j]]|length > i %}
                 <td>
-                  {{ tweets[user_screen_names[j]][i][0] }}
-                  {{ tweets[user_screen_names[j]][i][1] }}
-                  <a href='https://twitter.com/i/web/status/{{ tweets[user_screen_names[j]][i][2] }}'
-                    target='_blank'>Link
-                  </a>
+                  <div class="alert alert-info">
+                    {{ tweets[user_screen_names[j]][i][0] }}
+                    {{ tweets[user_screen_names[j]][i][1] }}
+                    <a href='https://twitter.com/i/web/status/{{ tweets[user_screen_names[j]][i][2] }}'
+                      target='_blank'>Link
+                    </a>
+                  </div>
                 </td>
               {% endif %}
             {% endfor %}
