@@ -78,7 +78,6 @@ class TweetsCardView(BaseView):
                 key=lambda x: int(x[1]),
                 reverse=True
             )
-            print tweets[user_screen_name]
         return self.render('tweets_card_view.html', tweets=tweets)
 
 
