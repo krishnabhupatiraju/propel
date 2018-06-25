@@ -27,7 +27,7 @@ class BaseExecutor(HeartbeatMixin):
             thread_function=task_class().execute,
             thread_args=[task_run_params],
             log_file=log_file,
-            heartbeat_model_kwargs={'task_run_id':task_run_id}
+            heartbeat_model_kwargs={'task_run_id': task_run_id}
         )
 
     def execute_async(self, task_run_params):

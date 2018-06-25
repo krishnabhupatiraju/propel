@@ -1,0 +1,33 @@
+{% set user_screen_names = tweets.keys() %}
+{% set max_num_tweets = tweets.values()|map('length')|sort|last %}
+
+{% extends 'admin/master.html' %}
+
+{% block body %}
+  <div class="container">
+    <table class="table">
+      <thead>
+        {% for user_screen_name in user_screen_names %}
+          <th scope="col">{{user_screen_name }}</th>
+        {% endfor %}
+      </thead>
+      <tbody>
+        {% for i in range(max_num_tweets)%}
+          <tr>
+            {% for j in range(user_screen_names|length)%}
+              {% if tweets[user_screen_names[j]]|length > i %}
+                <td>
+                  {{ tweets[user_screen_names[j]][i][0] }}
+                  {{ tweets[user_screen_names[j]][i][1] }}
+                  <a href='https://twitter.com/i/web/status/{{ tweets[user_screen_names[j]][i][2] }}'
+                    target='_blank'>Link
+                  </a>
+                </td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

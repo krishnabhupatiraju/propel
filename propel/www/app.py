@@ -1,11 +1,14 @@
+from collections import defaultdict
 from flask import Flask, Markup
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
+from flask_admin import BaseView, expose
 
 from propel import configuration
 
 from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, Tweets
 from propel.settings import Session
+from propel.utils.db import provide_session
 
 
 class TweetsView(ModelView):
@@ -57,6 +60,20 @@ class TaskRunsView(ModelView):
         ]
 
 
+class TweetsCardView(BaseView):
+    @expose('/')
+    @provide_session
+    def index(self, session=None):
+        tweets = defaultdict(list)
+        for tweet in session.query(Tweets).all():
+            tweet_attributes = list()
+            tweet_attributes.append(tweet.text)
+            tweet_attributes.append(tweet.favorite_count)
+            tweet_attributes.append(tweet.tweet_id)
+            tweets[tweet.user_screen_name].append(tweet_attributes)
+        return self.render('tweets_card_view.html', tweets=tweets)
+
+
 def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = configuration.get('flask', 'secret')
@@ -67,6 +84,7 @@ def create_app():
     admin.add_view(TaskRunsView(TaskRuns, Session))
     admin.add_view(ModelView(Heartbeats, Session))
     admin.add_view(TweetsView(Tweets, Session))
+    admin.add_view(TweetsCardView(name='TweetsCard', endpoint='tweetscardview'))
 
     # After the request response cycle is complete removing the scoped session.
     # Otherwise data added to the DB but external processes (like scheduler or worker )
