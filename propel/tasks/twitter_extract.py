@@ -14,7 +14,7 @@ class TwitterExtract(BaseTask):
     Class that contains methods to capture and store tweets from Twitter
     """
     token = None
-    timeline_url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
+    timeline_url = configuration.get('urls', 'twitter_user_timeline')
 
     @staticmethod
     @provide_session
@@ -43,8 +43,7 @@ class TwitterExtract(BaseTask):
             'screen_name': screen_name,
             'exclude_replies': 'false',
             'include_rts': 'true',
-            'count': 200,
-            'tweet_mode': 'extended'
+            'count': 200
         }
         logger.info("Fetching tweets for {}".format(screen_name))
         from_id = Tweets.latest_tweet_id_for_user(screen_name=screen_name)
