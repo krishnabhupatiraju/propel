@@ -512,5 +512,18 @@ class Tweets(Base):
             tweets.append(cls(**tweet_dict))
         session.bulk_save_objects(tweets)
 
+    def get_full_text(self):
+        """
+        Return the full text of the tweet. The full text is available
+        in one of the 3 text fields. This method uses the tweet_type
+        field to determine and return that text field.
+        """
+        if self.tweet_type == 'Quoted Tweet':
+            return self.quoted_text
+        elif self.tweet_type == 'Retweet':
+            return self.retweet_text
+        else:
+            return self.text
+
 
 Base.metadata.create_all(Engine)

@@ -67,7 +67,8 @@ class TweetsCardView(BaseView):
         tweets = defaultdict(list)
         for tweet in session.query(Tweets).all():
             tweet_attributes = list()
-            tweet_attributes.append(tweet.text)
+            tweet_attributes.append(tweet.tweet_type)
+            tweet_attributes.append(tweet.get_full_text())
             tweet_attributes.append(tweet.favorite_count)
             tweet_attributes.append(tweet.tweet_id)
             tweets[tweet.user_screen_name].append(tweet_attributes)
@@ -75,7 +76,7 @@ class TweetsCardView(BaseView):
         for user_screen_name, tweet_attributes in tweets.items():
             tweets[user_screen_name] = sorted(
                 tweet_attributes,
-                key=lambda x: int(x[1]),
+                key=lambda x: int(x[2]),
                 reverse=True
             )
         return self.render('tweets_card_view.html', tweets=tweets)

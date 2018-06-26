@@ -18,9 +18,10 @@
               {% if tweets[user_screen_names[j]]|length > i %}
                 <td>
                   <div class="alert alert-info">
-                    {{ tweets[user_screen_names[j]][i][0] }}
+                    {{ tweets[user_screen_names[j]][i][0] }}:
                     {{ tweets[user_screen_names[j]][i][1] }}
-                    <a href='https://twitter.com/i/web/status/{{ tweets[user_screen_names[j]][i][2] }}'
+                    {{ tweets[user_screen_names[j]][i][2] }}
+                    <a href='https://twitter.com/i/web/status/{{ tweets[user_screen_names[j]][i][3] }}'
                       target='_blank'>Link
                     </a>
                   </div>
