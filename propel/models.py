@@ -117,7 +117,7 @@ class Tweets(Base):
     tweet_type = Column(String(255))
     # Derived from parent level attributes of JSON returned by statuses/user_timeline
     tweet_created_at = Column(DateTime)
-    text = Column(String(255))
+    text = Column(String(1000))
     # Media uploaded to twitter
     # Derived from extended_entities.media[].media_url
     # In case of images it contains the url to the image
@@ -145,7 +145,7 @@ class Tweets(Base):
     # Fields derived from "quoted_status" node within the json
     quoted_tweet_id = Column(BIGINT(unsigned=True))
     quoted_created_at = Column(DateTime)
-    quoted_text = Column(String(255))
+    quoted_text = Column(String(1000))
     quoted_media_urls = Column(JSON)
     quoted_media_types = Column(JSON)
     quoted_media_video_urls = Column(JSON)
@@ -158,7 +158,7 @@ class Tweets(Base):
     # Fields derived from "retweeted_status" node within the json
     retweet_tweet_id = Column(BIGINT(unsigned=True))
     retweet_created_at = Column(DateTime)
-    retweet_text = Column(String(255))
+    retweet_text = Column(String(1000))
     retweet_media_urls = Column(JSON)
     retweet_media_types = Column(JSON)
     retweet_media_video_urls = Column(JSON)
