@@ -205,7 +205,9 @@ class Tweets(Base):
                 tweet_json.get('created_at'),
                 tweets_date_format
             )
-            tweet_dict['text'] = tweet_json.get('text')
+            # Based on the tweet_mode param passed to user_timeline data is
+            # returned in text of full_text attribute
+            tweet_dict['text'] = tweet_json.get('text') or tweet_json.get('full_text')
             tweet_dict['media_urls'] = extract_from_json(
                 tweet_json,
                 (
@@ -288,12 +290,22 @@ class Tweets(Base):
                 )
             else:
                 tweet_dict['quoted_created_at'] = None
-
-            tweet_dict['quoted_text'] = extract_from_json(
-                tweet_json,
-                (
-                    'quoted_status'
-                    '.text'
+            # Based on the tweet_mode param passed to user_timeline data is
+            # returned in text of full_text attribute
+            tweet_dict['quoted_text'] = (
+                extract_from_json(
+                    tweet_json,
+                    (
+                        'quoted_status'
+                        '.text'
+                    )
+                ) or
+                extract_from_json(
+                    tweet_json,
+                    (
+                        'quoted_status'
+                        '.full_text'
+                    )
                 )
             )
             tweet_dict['quoted_media_urls'] = extract_from_json(
@@ -393,13 +405,23 @@ class Tweets(Base):
                 )
             else:
                 tweet_dict['retweet_created_at'] = None
-
-            tweet_dict['retweet_text'] = extract_from_json(
-                tweet_json,
-                (
-                    'retweeted_status'
-                    '.text'
-                )
+            # Based on the tweet_mode param passed to user_timeline data is
+            # returned in text of full_text attribute
+            tweet_dict['retweet_text'] = (
+                    extract_from_json(
+                        tweet_json,
+                        (
+                            'retweeted_status'
+                            '.text'
+                        )
+                    ) or
+                    extract_from_json(
+                        tweet_json,
+                        (
+                            'retweeted_status'
+                            '.full_text'
+                        )
+                    )
             )
             tweet_dict['retweet_media_urls'] = extract_from_json(
                 tweet_json,
