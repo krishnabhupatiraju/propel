@@ -26,7 +26,9 @@
     <table class="table">
       <thead>
         {% for user_screen_name in user_screen_names %}
-          <th scope="col">{{user_screen_name }}</th>
+          <th scope="col">
+            {{ user_screen_name }}
+          </th>
         {% endfor %}
       </thead>
       <tbody>
@@ -43,6 +45,9 @@
                       target='_blank'>Link
                     </a>
                   </div>
+                </td>
+              {% else %}
+                <td>
                 </td>
               {% endif %}
             {% endfor %}
