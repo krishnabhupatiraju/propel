@@ -16,4 +16,3 @@ class TweetsDeck(FlaskForm):
         format='%Y-%m-%d %H:%M:%S'
     )
     submit = SubmitField()
-
