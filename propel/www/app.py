@@ -9,6 +9,7 @@ from propel import configuration
 from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, Tweets
 from propel.settings import Session
 from propel.utils.db import provide_session
+from propel.www import forms
 
 
 class TweetsView(ModelView):
@@ -60,26 +61,39 @@ class TaskRunsView(ModelView):
         ]
 
 
-class TweetsCardView(BaseView):
-    @expose('/')
+class TweetsDeckView(BaseView):
+    @expose('/', methods=['GET', 'POST'])
     @provide_session
     def index(self, session=None):
+        form = forms.TweetsDeck()
         tweets = defaultdict(list)
-        for tweet in session.query(Tweets).all():
-            tweet_attributes = list()
-            tweet_attributes.append(tweet.tweet_type)
-            tweet_attributes.append(tweet.get_full_text())
-            tweet_attributes.append(tweet.favorite_count)
-            tweet_attributes.append(tweet.tweet_id)
-            tweets[tweet.user_screen_name].append(tweet_attributes)
-        # Sorting tweets based on favorite_count
-        for user_screen_name, tweet_attributes in tweets.items():
-            tweets[user_screen_name] = sorted(
-                tweet_attributes,
-                key=lambda x: int(x[2]),
-                reverse=True
+        if form.validate_on_submit():
+            user_screen_names = map(lambda x: x.strip(), form.user_screen_names.data.split(','))
+            tweets_start_dt = form.tweets_start_dt.data
+            tweets_end_dt = form.tweets_end_dt.data
+            matching_tweets = (
+                session
+                .query(Tweets)
+                .filter(Tweets.user_screen_name.in_(user_screen_names))
+                .filter(Tweets.tweet_created_at >= tweets_start_dt)
+                .filter(Tweets.tweet_created_at <= tweets_end_dt)
+                .all()
             )
-        return self.render('tweets_card_view.html', tweets=tweets)
+            for tweet in matching_tweets:
+                tweet_attributes = list()
+                tweet_attributes.append(tweet.tweet_type)
+                tweet_attributes.append(tweet.get_full_text())
+                tweet_attributes.append(tweet.favorite_count)
+                tweet_attributes.append(tweet.tweet_id)
+                tweets[tweet.user_screen_name].append(tweet_attributes)
+            # Sorting tweets based on favorite_count
+            for user_screen_name, tweet_attributes in tweets.items():
+                tweets[user_screen_name] = sorted(
+                    tweet_attributes,
+                    key=lambda x: int(x[2]),
+                    reverse=True
+                )
+        return self.render('tweets_deck.html', tweets=tweets, form=form)
 
 
 def create_app():
@@ -92,7 +106,7 @@ def create_app():
     admin.add_view(TaskRunsView(TaskRuns, Session))
     admin.add_view(ModelView(Heartbeats, Session))
     admin.add_view(TweetsView(Tweets, Session))
-    admin.add_view(TweetsCardView(name='TweetsCard', endpoint='tweetscardview'))
+    admin.add_view(TweetsDeckView(name='TweetsDeck'))
 
     # After the request response cycle is complete removing the scoped session.
     # Otherwise data added to the DB but external processes (like scheduler or worker )
