@@ -6,7 +6,7 @@ from flask_admin import BaseView, expose
 
 from propel import configuration
 
-from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, Tweets
+from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, Tweets, News
 from propel.settings import Session
 from propel.utils.db import provide_session
 from propel.www import forms
@@ -106,6 +106,7 @@ def create_app():
     admin.add_view(TaskRunsView(TaskRuns, Session))
     admin.add_view(ModelView(Heartbeats, Session))
     admin.add_view(TweetsView(Tweets, Session))
+    admin.add_view(ModelView(News, Session))
     admin.add_view(TweetsDeckView(name='TweetsDeck'))
 
     # After the request response cycle is complete removing the scoped session.

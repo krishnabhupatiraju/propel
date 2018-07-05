@@ -18,10 +18,12 @@ class TwitterExtract(BaseTask):
     @staticmethod
     @provide_session
     def _get_token(session=None):
-        twitter_conn = (session.
-                        query(Connections).
-                        filter_by(type='Twitter').
-                        first())
+        twitter_conn = (
+            session
+            .query(Connections)
+            .filter_by(type='Twitter')
+            .first()
+        )
         token = json.loads(twitter_conn.token)
         return token
 
@@ -32,7 +34,7 @@ class TwitterExtract(BaseTask):
         :param task: An dict that contains details about the task to run
         :type task: dict
         """
-        logger.info('Getting Twitter token')
+        logger.info('Getting Twitter Credentials')
         token = self._get_token()
         twitter_session = OAuth2Session(token=token)
         continue_fetching = True
