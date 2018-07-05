@@ -38,32 +38,39 @@ class Scheduler(HeartbeatMixin):
         for task in tasks:
             task_last_run_ds = last_task_runs.get(task.id)
             task_run_params = task.as_dict()
-            if task_last_run_ds:
-                next_run_ds = task_last_run_ds + timedelta(seconds=task.run_frequency_seconds)
-                if next_run_ds <= current_datetime:
-                    logger.debug(
-                        "Scheduling Task {} for {}"
-                        .format(task.task_name, next_run_ds)
-                    )
-                    task_run_params['run_ds'] = next_run_ds
-                    eligible_tasks_to_run.append(task_run_params)
-                else:
-                    logger.debug(
-                        "Task {} still not eligible to run for {}"
-                        .format(task.task_name, next_run_ds)
-                    )
-            else:
-                next_run_ds = (current_datetime -
-                               timedelta(seconds=round(current_datetime.second, -1),
-                                         microseconds=current_datetime.microsecond
-                                         )
-                               )
+            is_first_time_run = False if task_last_run_ds else True
+            if is_first_time_run:
+                # If task is running for first time, run it for the
+                # nearest minute before current_datetime
+                next_run_ds = (
+                        current_datetime -
+                        timedelta(
+                            seconds=current_datetime.second,
+                            microseconds=current_datetime.microsecond
+                        )
+                )
                 logger.debug(
-                    "Task {} never ran. Scheduling it for {}"
+                    "Task {} never ran. Will schedule it for {}"
                     .format(task.task_name, next_run_ds)
                 )
+            else:
+                next_run_ds = task_last_run_ds + timedelta(seconds=task.run_frequency_seconds)
+
+            if next_run_ds <= current_datetime:
+                logger.debug(
+                    "Scheduling Task {} for {}".format(task.task_name, next_run_ds)
+                )
                 task_run_params['run_ds'] = next_run_ds
+                task_run_params['interval_start_ds'] = (
+                        next_run_ds
+                        - timedelta(seconds=task.run_frequency_seconds)
+                )
+                task_run_params['interval_end_ds'] = next_run_ds
                 eligible_tasks_to_run.append(task_run_params)
+            else:
+                logger.debug(
+                    "Task {} still not eligible to run for {}".format(task.task_name, next_run_ds)
+                )
         return eligible_tasks_to_run
 
     @provide_session

@@ -17,7 +17,7 @@ class Connections(Base):
     __tablename__ = 'connections'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    type = Column(Enum('Twitter', 'Youtube'), nullable=False)
+    type = Column(Enum('Twitter', 'Youtube', 'NewsAPI'), nullable=False)
     key = Column(String(5000))
     secret = Column(String(5000))
     token = Column(String(5000))
@@ -57,7 +57,7 @@ class Tasks(Base):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True)
     task_name = Column(String(1000), nullable=False)
-    task_type = Column(Enum('TwitterExtract'), nullable=False)
+    task_type = Column(Enum('TwitterExtract', 'NewsDownload'), nullable=False)
     task_args = Column(String(1000), nullable=False)
     run_frequency_seconds = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -174,7 +174,7 @@ class Tweets(Base):
     def __repr__(self):
         return (
             "<Tweet(id={0}, text={1}, user_screen_name={2})>"
-            .format(self.id, self.text, self.user_screen_name)
+            .format(self.tweet_id, self.text, self.user_screen_name)
         )
 
     @classmethod
@@ -197,13 +197,13 @@ class Tweets(Base):
     @provide_session
     def load_into_db(cls, tweets_json, session=None):
         tweets = list()
-        tweets_date_format = '%a %b %d %H:%M:%S +0000 %Y'
+        date_format = '%a %b %d %H:%M:%S +0000 %Y'
         for tweet_json in tweets_json:
             tweet_dict = dict()
             tweet_dict['tweet_id'] = tweet_json['id']
             tweet_dict['tweet_created_at'] = datetime.strptime(
                 tweet_json.get('created_at'),
-                tweets_date_format
+                date_format
             )
             # Based on the tweet_mode param passed to user_timeline data is
             # returned in text of full_text attribute
@@ -286,7 +286,7 @@ class Tweets(Base):
             if quoted_created_at:
                 tweet_dict['quoted_created_at'] = datetime.strptime(
                     quoted_created_at,
-                    tweets_date_format
+                    date_format
                 )
             else:
                 tweet_dict['quoted_created_at'] = None
@@ -401,7 +401,7 @@ class Tweets(Base):
             if retweet_created_at:
                 tweet_dict['retweet_created_at'] = datetime.strptime(
                     retweet_created_at,
-                    tweets_date_format
+                    date_format
                 )
             else:
                 tweet_dict['retweet_created_at'] = None
@@ -524,6 +524,45 @@ class Tweets(Base):
             return self.retweet_text
         else:
             return self.text
+
+
+class News(Base):
+    __tablename__ = 'news'
+    news_id = Column(BIGINT(unsigned=True), primary_key=True)
+    author = Column(String(100))
+    description = Column(String(2000))
+    published_at = Column(DateTime)
+    source = Column(JSON)
+    title = Column(String(2000))
+    url = Column(String(1000))
+    raw_news = Column(JSON)
+
+    def __repr__(self):
+        return (
+            "<News(id={0}, title={1}, source={2})>"
+            .format(self.news_id, self.title, self.source)
+        )
+
+    @classmethod
+    @provide_session
+    def load_into_db(cls, news_json, session=None):
+        date_format = '%Y-%m-%dT%H:%M:%SZ'
+        news = list()
+        for news_item in news_json:
+            news_dict = dict()
+            news_dict['author'] = news_item.get('author')
+            news_dict['description'] = news_item.get('description')
+            news_dict['published_at'] = datetime.strptime(
+                news_item.get('publishedAt'),
+                date_format
+            )
+            news_dict['source'] = extract_from_json(news_item, 'source.name')
+            news_dict['title'] = news_item.get('title')
+            news_dict['url'] = news_item.get('url')
+            news_dict['raw_news'] = news_item
+            # Collecting news object to bulk update at the end
+            news.append(cls(**news_dict))
+        session.bulk_save_objects(news)
 
 
 Base.metadata.create_all(Engine)

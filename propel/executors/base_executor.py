@@ -10,6 +10,9 @@ class BaseExecutor(HeartbeatMixin):
         if task_type == 'TwitterExtract':
             from propel.tasks.twitter_extract import TwitterExtract
             task_class = TwitterExtract
+        elif task_type == 'NewsDownload':
+            from propel.tasks.news_download import NewsDownload
+            task_class = NewsDownload
         else:
             raise NotImplementedError('Task type {} not defined'.format(task_type))
         return task_class
