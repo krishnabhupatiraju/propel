@@ -58,17 +58,3 @@ class NewsDownload(BaseTask):
         logger.info('Got {} news articles'.format(len(articles)))
         if 'articles' in newsapi_response.json():
             News.load_into_db(articles)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
