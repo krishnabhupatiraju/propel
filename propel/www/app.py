@@ -6,7 +6,8 @@ from flask_admin import BaseView, expose
 
 from propel import configuration
 
-from propel.models import Connections, TaskGroups, Tasks, TaskRuns, Heartbeats, Tweets, News
+from propel.models import Connections, TaskGroups, Tasks, TaskRuns, \
+    Heartbeats, Tweets, News, Article
 from propel.settings import Session
 from propel.utils.db import provide_session
 from propel.www import forms
@@ -61,39 +62,67 @@ class TaskRunsView(ModelView):
         ]
 
 
-class TweetsDeckView(BaseView):
+class ArticlesDeckView(BaseView):
     @expose('/', methods=['GET', 'POST'])
     @provide_session
     def index(self, session=None):
-        form = forms.TweetsDeck()
-        tweets = defaultdict(list)
+        form = forms.ArticlesDeck()
+        articles = defaultdict(list)
+        authors = list()
         if form.validate_on_submit():
-            user_screen_names = map(lambda x: x.strip(), form.user_screen_names.data.split(','))
-            tweets_start_dt = form.tweets_start_dt.data
-            tweets_end_dt = form.tweets_end_dt.data
+            authors = map(lambda x: x.strip(), form.authors.data.split(','))
+            start_dt = form.start_dt.data
+            end_dt = form.end_dt.data
             matching_tweets = (
                 session
                 .query(Tweets)
-                .filter(Tweets.user_screen_name.in_(user_screen_names))
-                .filter(Tweets.tweet_created_at >= tweets_start_dt)
-                .filter(Tweets.tweet_created_at <= tweets_end_dt)
+                .filter(Tweets.user_screen_name.in_(authors))
+                .filter(Tweets.tweet_created_at >= start_dt)
+                .filter(Tweets.tweet_created_at <= end_dt)
                 .all()
             )
             for tweet in matching_tweets:
-                tweet_attributes = list()
-                tweet_attributes.append(tweet.tweet_type)
-                tweet_attributes.append(tweet.get_full_text())
-                tweet_attributes.append(tweet.favorite_count)
-                tweet_attributes.append(tweet.tweet_id)
-                tweets[tweet.user_screen_name].append(tweet_attributes)
-            # Sorting tweets based on favorite_count
-            for user_screen_name, tweet_attributes in tweets.items():
-                tweets[user_screen_name] = sorted(
-                    tweet_attributes,
-                    key=lambda x: int(x[2]),
+                article = Article(
+                    author=tweet.user_screen_name,
+                    article_type=tweet.tweet_type,
+                    text=tweet.get_full_text(),
+                    popularity=tweet.favorite_count,
+                    url=tweet.get_tweet_url()
+                )
+                articles[tweet.user_screen_name].append(article)
+            # Fetching News articles
+            matching_news = (
+                session
+                .query(News)
+                .filter(News.published_at >= start_dt)
+                .filter(News.published_at <= end_dt)
+                .all()
+            )
+            for news in matching_news:
+                article = Article(
+                    author=news.source,
+                    article_type='News',
+                    text=news.title,
+                    popularity=news.published_at,
+                    url=news.url
+                )
+                articles['News'].append(article)
+            # Adding 'News' to the top of the list so it appears first in the page
+            authors.insert(0, 'News')
+            # Sorting articles based on popularity
+            for author, article_list in articles.items():
+                articles[author] = sorted(
+                    article_list,
+                    key=lambda x: x.popularity,
                     reverse=True
                 )
-        return self.render('tweets_deck.html', tweets=tweets, form=form)
+        # Passing authors to display in same order as form input in table
+        return self.render(
+            'articles_deck.html',
+            form=form,
+            articles=articles,
+            authors=authors
+        )
 
 
 def create_app():
@@ -107,7 +136,7 @@ def create_app():
     admin.add_view(ModelView(Heartbeats, Session))
     admin.add_view(TweetsView(Tweets, Session))
     admin.add_view(ModelView(News, Session))
-    admin.add_view(TweetsDeckView(name='TweetsDeck'))
+    admin.add_view(ArticlesDeckView(name='ArticlesDeck'))
 
     # After the request response cycle is complete removing the scoped session.
     # Otherwise data added to the DB but external processes (like scheduler or worker )

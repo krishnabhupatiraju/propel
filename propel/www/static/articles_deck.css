@@ -1,0 +1,36 @@
+.infinitewidth {
+  width: 40000%;
+}
+
+.margintop {
+  margin-top: 30px;
+}
+
+.fixedheight {
+  height: 500px;
+}
+
+.fixedmargin {
+  margin-left: 400px;
+}
+
+.clear {
+  clear:both;
+}
+
+.fixedwidth{
+  width: 400px;
+  background-color: #FFF;
+  overflow: auto;
+  float: left;
+  border: 1px dotted black;
+}
+
+.stickyfixedwidth {
+  position: fixed;
+  width: 400px;
+  z-index: 1;
+  background-color: #FFF;
+  overflow: auto;
+  border: 1px dotted black;
+}

@@ -525,6 +525,9 @@ class Tweets(Base):
         else:
             return self.text
 
+    def get_tweet_url(self):
+        return 'https://twitter.com/i/web/status/{}'.format(self.tweet_id)
+
 
 class News(Base):
     __tablename__ = 'news'
@@ -563,6 +566,23 @@ class News(Base):
             # Collecting news object to bulk update at the end
             news.append(cls(**news_dict))
         session.bulk_save_objects(news)
+
+
+class Article(object):
+
+    def __init__(
+            self,
+            author,
+            article_type,
+            text,
+            popularity,
+            url
+    ):
+        self.author = author
+        self.article_type = article_type
+        self.text = text
+        self.popularity = popularity
+        self.url = url
 
 
 Base.metadata.create_all(Engine)
