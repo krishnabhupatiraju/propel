@@ -1,0 +1,71 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+  {{ super() }}
+  <link href="{{ url_for('static',filename='articles_deck.css') }}" rel="stylesheet">
+{% endblock %}
+
+
+{% block body %}
+  <div class="container">
+    <form action="" method="post" class="form-inline">
+      {{ form.csrf_token() }}
+      <div class="form-group">
+          {{ form.authors.label }}
+          {{ form.authors(class_="form-control") }}
+      </div>
+       <div class="form-group">
+          {{ form.start_dt.label }}
+          {{ form.start_dt(class_="form-control") }}
+       </div>
+        <div class="form-group">
+          {{ form.end_dt.label }}
+          {{ form.end_dt(class_="form-control") }}
+        </div>
+          {{ form.submit(class_="btn btn-default") }}
+      </div>
+    </form>
+  </div>
+
+  {# div to show authors #}
+  <div class="infinitewidth margintop">
+    {% for author in authors %}
+      {% if loop.index0 == 0 %}
+        {% set css_classes = "stickyfixedwidth" %}
+      {% elif loop.index0 == 1 %}
+        {% set css_classes = "fixedwidth fixedmargin" %}
+      {% else %}
+        {% set css_classes = "fixedwidth" %}
+      {% endif %}
+      <div class="{{ css_classes }}">
+        {{ author }}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class='clear'></div>
+
+  {# div to show articles #}
+  <div class="infinitewidth">
+    {% for author in authors %}
+      {% if loop.index0 == 0 %}
+        {% set css_classes = "stickyfixedwidth fixedheight" %}
+      {% elif loop.index0 == 1 %}
+        {% set css_classes = "fixedwidth fixedmargin fixedheight" %}
+      {% else %}
+        {% set css_classes = "fixedwidth fixedheight" %}
+      {% endif %}
+      <div class="{{ css_classes }}">
+        {% for article in articles[author] %}
+          <div class="alert alert-info">
+            {{ article.article_type }}:
+            {{ article.text }}
+            {{ article.popularity }}
+            <a href={{ article.url }} target="_blank">Link</a>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+
+{% endblock %}
