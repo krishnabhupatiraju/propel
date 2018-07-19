@@ -30,13 +30,7 @@
   {# div to show authors #}
   <div class="infinitewidth margintop">
     {% for author in authors %}
-      {% if loop.index0 == 0 %}
-        {% set css_classes = "stickyfixedwidth" %}
-      {% elif loop.index0 == 1 %}
-        {% set css_classes = "fixedwidth fixedmargin" %}
-      {% else %}
-        {% set css_classes = "fixedwidth" %}
-      {% endif %}
+      {% set css_classes = "fixedwidth" %}
       <div class="{{ css_classes }}">
         {{ author }}
       </div>
@@ -48,13 +42,7 @@
   {# div to show articles #}
   <div class="infinitewidth">
     {% for author in authors %}
-      {% if loop.index0 == 0 %}
-        {% set css_classes = "stickyfixedwidth fixedheight" %}
-      {% elif loop.index0 == 1 %}
-        {% set css_classes = "fixedwidth fixedmargin fixedheight" %}
-      {% else %}
-        {% set css_classes = "fixedwidth fixedheight" %}
-      {% endif %}
+      {% set css_classes = "fixedwidth fixedheight" %}
       <div class="{{ css_classes }}">
         {% for article in articles[author] %}
           <div class="alert alert-info">
