@@ -583,6 +583,3 @@ class Article(object):
         self.text = text
         self.popularity = popularity
         self.url = url
-
-
-Base.metadata.create_all(Engine)
