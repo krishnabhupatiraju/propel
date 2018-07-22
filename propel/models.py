@@ -6,7 +6,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
 from sqlalchemy.sql import func
 
-from propel.settings import Engine
 from propel.utils.db import provide_session
 from propel.utils.general import extract_from_json
 
@@ -583,6 +582,3 @@ class Article(object):
         self.text = text
         self.popularity = popularity
         self.url = url
-
-
-Base.metadata.create_all(Engine)
