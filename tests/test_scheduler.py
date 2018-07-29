@@ -29,16 +29,16 @@ class TestScheduler(object):
 
         def _get_last_task_runs_mock():
             return {
-                2: datetime(2018, 06, 28, 00, 00, 00),
-                3: datetime(2018, 06, 28, 00, 00, 00),
-                4: datetime(2018, 07, 27, 23, 59, 59),
+                2: datetime(2018, 6, 28, 0, 0, 0),
+                3: datetime(2018, 6, 28, 0, 0, 0),
+                4: datetime(2018, 7, 27, 23, 59, 59),
             }
 
         scheduler = Scheduler()
         monkeypatch.setattr(scheduler, '_get_tasks', _get_tasks_mock)
         monkeypatch.setattr(scheduler, '_get_last_task_runs', _get_last_task_runs_mock)
 
-        mocked_current_datetime=datetime(2018, 07, 28, 00, 00, 00)
+        mocked_current_datetime=datetime(2018, 7, 28, 0, 0, 0)
         returned_eligible_tasks_to_run = scheduler._get_eligible_tasks_to_run(
             current_datetime=mocked_current_datetime
         )
@@ -57,9 +57,9 @@ class TestScheduler(object):
                 'task_name': 'task2',
                 'schedule_latest': False,
                 'run_frequency_seconds': 60,
-                'run_ds': datetime(2018, 06, 28, 00, 00, 00)+timedelta(seconds=60),
-                'interval_start_ds': datetime(2018, 06, 28, 00, 00, 00),
-                'interval_end_ds': datetime(2018, 06, 28, 00, 00, 00)+timedelta(seconds=60),
+                'run_ds': datetime(2018, 6, 28, 0, 0, 0)+timedelta(seconds=60),
+                'interval_start_ds': datetime(2018, 6, 28, 0, 0, 0),
+                'interval_end_ds': datetime(2018, 6, 28, 0, 0, 0)+timedelta(seconds=60),
             },
             {
                 'id': 3,
