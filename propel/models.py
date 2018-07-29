@@ -59,6 +59,7 @@ class Tasks(Base):
     task_type = Column(Enum('TwitterExtract', 'NewsDownload'), nullable=False)
     task_args = Column(String(1000), nullable=False)
     run_frequency_seconds = Column(Integer, nullable=False)
+    schedule_latest = Column(Boolean, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
