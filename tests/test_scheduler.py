@@ -71,4 +71,7 @@ class TestScheduler(object):
                 'interval_end_ds': mocked_current_datetime,
             },
         ]
-        assert sorted(returned_eligible_tasks_to_run) == sorted(expected_eligible_tasks_to_run)
+        assert (
+                sorted(returned_eligible_tasks_to_run, key=lambda x: x['id'])
+                == sorted(expected_eligible_tasks_to_run, key=lambda x: x['id'])
+        )
