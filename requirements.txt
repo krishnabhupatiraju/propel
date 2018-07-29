@@ -1,5 +1,7 @@
 alembic==1.0.0
 amqp==2.2.2
+atomicwrites==1.1.5
+attrs==18.1.0
 billiard==3.5.0.3
 celery==4.1.0
 certifi==2017.7.27.1
@@ -12,6 +14,7 @@ Flask==0.12.2
 Flask-Admin==1.5.1
 Flask-SQLAlchemy==2.2
 Flask-WTF==0.14.2
+funcsigs==1.0.2
 idna==2.6
 itsdangerous==0.24
 Jinja2==2.9.6
@@ -19,13 +22,17 @@ kombu==4.1.0
 Mako==1.0.7
 MarkupSafe==1.0
 mccabe==0.6.1
+more-itertools==4.2.0
 numpy==1.14.5
 oauthlib==2.0.4
 pandas==0.23.1
+pluggy==0.7.1
 plugout==0.1.1
+py==1.5.4
 pycodestyle==2.3.1
 pyflakes==1.6.0
 PyMySQL==0.7.11
+pytest==3.6.4
 python-dateutil==2.7.3
 python-editor==1.0.3
 pytz==2017.2

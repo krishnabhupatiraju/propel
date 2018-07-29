@@ -104,3 +104,6 @@ ENV/
 .idea/
 .project
 .pydevproject
+
+# pytest
+.pytest_cache/

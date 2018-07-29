@@ -55,7 +55,17 @@ class Scheduler(HeartbeatMixin):
                 )
             else:
                 next_run_ds = task_last_run_ds + timedelta(seconds=task.run_frequency_seconds)
-
+                # If schedule_latest then skip intermediate runs. This is useful when
+                # the scheduler is down for long periods of time. In that case this
+                # setting will make the scheduler schedule only the latest run instead
+                # of catching up
+                if task.schedule_latest:
+                    catchup_seconds = int(
+                        (current_datetime - task_last_run_ds).total_seconds() /
+                        task.run_frequency_seconds
+                    ) * task.run_frequency_seconds
+                    latest_possible_run = task_last_run_ds + timedelta(seconds=catchup_seconds)
+                    next_run_ds = max(next_run_ds, latest_possible_run)
             if next_run_ds <= current_datetime:
                 logger.debug(
                     "Scheduling Task {} for {}".format(task.task_name, next_run_ds)

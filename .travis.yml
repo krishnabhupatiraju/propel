@@ -12,3 +12,4 @@ before_script:
   - mysql -e 'DROP DATABASE IF EXISTS propel; CREATE DATABASE propel' -u root
 script:
   - flake8 propel
+  - pytest
