@@ -240,7 +240,7 @@ class FunctionExceptionCatcher(object):
     def __call__(self, *args, **kwargs):
         try:
             self.func(*args, **kwargs)
-        except:
+        except BaseException:
             self.exc_info = sys.exc_info()
 
 
@@ -366,7 +366,7 @@ class HeartbeatMixin(object):
                 self._run_heartbeat(thread_function, thread_args, thread_kwargs)
         # Note: SystemExit is not captured by Exception.
         # Leaving this to catch every exception including SystemExit and KeyboardInterrupt
-        except:
+        except BaseException:
             # If exception queue is specified add exception to Queue.
             if exception_queue:
                 exception_queue.put(sys.exc_info())

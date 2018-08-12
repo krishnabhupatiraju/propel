@@ -40,7 +40,7 @@ class BaseExecutor(HeartbeatMixin):
                 heartbeat_model_kwargs={'task_run_id': task_run_id}
             )
         # Update task status to Error for any exception including KeyboardInterrupt and SystemExit
-        except:
+        except BaseException:
             task_run.state = State.FAILED
             commit_db_object(task_run)
         else:
