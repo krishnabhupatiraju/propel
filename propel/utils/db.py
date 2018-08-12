@@ -45,3 +45,9 @@ def provide_session(func):
                 kwargs[session_arg] = session
                 return func(*args, **kwargs)
     return wrapper
+
+
+@provide_session
+def commit_db_object(db_object, session=None):
+    session.add(db_object)
+    session.commit()
