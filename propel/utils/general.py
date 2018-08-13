@@ -9,7 +9,8 @@ import traceback
 from datetime import datetime
 from functools import wraps
 from propel import configuration
-from propel.settings import logger, Session
+from propel.settings import logger
+from propel.utils.db import commit_db_object
 from propel.utils.log import reset_logger
 
 
@@ -195,6 +196,7 @@ class Memoize(object):
     """
     Decorator to memoize the results of the function until ttl.
     """
+
     def __init__(self, ttl):
         self.ttl = ttl
         self.expires_at = time.time() + ttl
@@ -214,6 +216,7 @@ class Memoize(object):
             else:
                 logger.debug("Cache hit for {}({},{})".format(func, args, kwargs))
             return self.cache[key]
+
         return wrapper
 
 
@@ -227,6 +230,22 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
+
+
+class FunctionExceptionCatcher(object):
+    """
+    Wrapper around function that catches and records exceptions
+    """
+
+    def __init__(self, func):
+        self.func = func
+        self.exc_info = None
+
+    def __call__(self, *args, **kwargs):
+        try:
+            self.func(*args, **kwargs)
+        except BaseException:
+            self.exc_info = sys.exc_info()
 
 
 class HeartbeatMixin(object):
@@ -266,19 +285,31 @@ class HeartbeatMixin(object):
             heartbeat_process.terminate()
             # Joining to ensure we wait for the child process to terminate
             heartbeat_process.join()
-            sys.exit(0)
+            # Exit from Python. This is implemented by raising the SystemExit exception,
+            # so cleanup actions specified by finally clauses of try statements are honored,
+            # and it is possible to intercept the exit attempt at an outer level.
+            sys.exit(1)
 
         # Handling interrupt signals
         signal.signal(signal.SIGTERM, kill_heartbeat_process)
         signal.signal(signal.SIGINT, kill_heartbeat_process)
         signal.signal(signal.SIGQUIT, kill_heartbeat_process)
 
+        # A queue to capture exceptions in child process
+        child_process_exceptions = billiard.Queue()
         # Using billiard instead of multiprocessing since Celery creates a daemon process
         # to run a task and Python doesnt allow another daemon to be spun up from a
         # daemon process
         heartbeat_process = billiard.Process(
             target=self._heartbeat_with_logger_redirect,
-            args=(thread_function, thread_args, thread_kwargs, log_file, heartbeat_model_kwargs)
+            args=(
+                thread_function,
+                thread_args,
+                thread_kwargs,
+                log_file,
+                heartbeat_model_kwargs,
+                child_process_exceptions
+            )
         )
         # # Setting is as a daemon process so the process exits when it receives
         # # a KILL signal. Otherwise sys.ext waits until the process finishes
@@ -287,13 +318,27 @@ class HeartbeatMixin(object):
         logger.info('Starting heartbeat process. PID: {}'.format(heartbeat_process.pid))
         heartbeat_process.join()
 
+        # If exception occurred in child process then raise it in parent process
+        if not child_process_exceptions.empty():
+            (
+                child_process_exception_type,
+                child_process_exception_class,
+                child_process_traceback
+            ) = child_process_exceptions.get_nowait()
+            raise child_process_exception_type(
+                str(child_process_exception_class.message)
+                + "\n"
+                + child_process_traceback
+            )
+
     def _heartbeat_with_logger_redirect(
             self,
             thread_function,
             thread_args=None,
             thread_kwargs=None,
             log_file=None,
-            heartbeat_model_kwargs=None
+            heartbeat_model_kwargs=None,
+            exception_queue=None
     ):
         """
         Helper method that redirects output before calling the _run_heartbeat method
@@ -308,34 +353,46 @@ class HeartbeatMixin(object):
         :type log_file: str
         :param heartbeat_model_kwargs: kwargs that are passed when creating heartbeat entry
         :type heartbeat_model_kwargs: dict
+        :param exception_queue: Queue to communicate exceptions in this process to parent
+        :type exception_queue: billiard.Queue
         """
-
-        if log_file:
-            with open(log_file, 'a') as log_file_handle:
-                try:
-                    logger.info("Redirecting output to {}".format(log_file))
-                    sys.stdout = log_file_handle
-                    sys.stderr = log_file_handle
-                    # Resetting logger so it is configured to output to log_file
-                    # See https://stackoverflow.com/questions/22105465/
-                    # how-can-i-temporarily-redirect-the-output-of-logging-in-python
-                    # /50652143#50652143
-                    reset_logger()
-                    self._run_heartbeat(
-                        thread_function,
-                        thread_args,
-                        thread_kwargs,
-                        heartbeat_model_kwargs
-                    )
-                except Exception as e:
-                    logger.exception(e)
-                    raise
-                finally:
-                    sys.stdout = sys.__stdout__
-                    sys.stderr = sys.__stderr__
-                    reset_logger()
-        else:
-            self._run_heartbeat(thread_function, thread_args, thread_kwargs)
+        try:
+            if log_file:
+                with open(log_file, 'a') as log_file_handle:
+                    try:
+                        logger.info("Redirecting output to {}".format(log_file))
+                        sys.stdout = log_file_handle
+                        sys.stderr = log_file_handle
+                        # Resetting logger so it is configured to output to log_file
+                        # See https://stackoverflow.com/questions/22105465/
+                        # how-can-i-temporarily-redirect-the-output-of-logging-in-python
+                        # /50652143#50652143
+                        reset_logger()
+                        self._run_heartbeat(
+                            thread_function,
+                            thread_args,
+                            thread_kwargs,
+                            heartbeat_model_kwargs
+                        )
+                    except Exception as e:
+                        logger.exception(e)
+                        raise
+                    finally:
+                        sys.stdout = sys.__stdout__
+                        sys.stderr = sys.__stderr__
+                        reset_logger()
+            else:
+                self._run_heartbeat(thread_function, thread_args, thread_kwargs)
+        # Catch every exception including SystemExit and KeyboardInterrupt
+        # Note: SystemExit is not captured by Exception.
+        except BaseException:
+            # If exception queue is specified add exception to Queue.
+            if exception_queue:
+                exception_type, exception_class, tb = sys.exc_info()
+                # traceback info is not pickleable. So extracting it as str before adding to queue
+                exception_queue.put((exception_type, exception_class, traceback.format_exc(tb)))
+                exception_queue.close()
+            raise
 
     def _run_heartbeat(
             self,
@@ -359,7 +416,11 @@ class HeartbeatMixin(object):
 
         def poison_pill(signum, frame):
             logger.warning("Received signal {}. Taking poison pill".format(signum))
-            sys.exit(0)
+            # Exit from Python. This is implemented by raising the SystemExit exception,
+            # so cleanup actions specified by finally clauses of try statements are honored,
+            # and it is possible to intercept the exit attempt at an outer level. Note that
+            # SystemExit is not caught by except Exception
+            sys.exit(1)
 
         # Handling interrupt signals
         signal.signal(signal.SIGTERM, poison_pill)
@@ -371,32 +432,51 @@ class HeartbeatMixin(object):
         if not thread_kwargs:
             thread_kwargs = dict()
 
+        # Wrapping thread function within an exception handler so we know if the thread
+        # failed with an exception
+        thread_function_with_exception_catcher = FunctionExceptionCatcher(func=thread_function)
+
         # Using billiard instead of multiprocessing since Celery creates a daemon process
         # to run a task and Python doesnt allow another daemon to be spun up from that process
         thread = threading.Thread(
-            target=thread_function,
+            target=thread_function_with_exception_catcher,
             args=thread_args,
             kwargs=thread_kwargs
         )
         # Setting is as a daemon thread so the process can exit when it receives
-        # a KILL signal. Otherwise sys.ext waits until the thread to finish.
+        # a KILL signal. Otherwise sys.ext waits for the thread to finish.
         thread.daemon = True
         thread.start()
         heartbeat = None
-        session = Session()
-
         heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
-        from propel.models import Heartbeats
         while thread.isAlive():
             if not heartbeat:
-                heartbeat = Heartbeats(
-                    task_type=self.__class__.__name__,
-                    last_heartbeat_time=datetime.utcnow(),
-                    **heartbeat_model_kwargs if heartbeat_model_kwargs else dict()
+                heartbeat = self._update_heartbeat(
+                    heartbeat=None,
+                    heartbeat_model_kwargs=heartbeat_model_kwargs
                 )
             else:
-                heartbeat.last_heartbeat_time = datetime.utcnow()
-            session.add(heartbeat)
-            session.commit()
+                self._update_heartbeat(
+                    heartbeat=heartbeat,
+                    heartbeat_model_kwargs=heartbeat_model_kwargs
+                )
             logger.info('Woot Woot from PID: {}'.format(os.getpid()))
             time.sleep(heartbeat_seconds)
+
+        thread_exc_info = thread_function_with_exception_catcher.exc_info
+        if thread_exc_info:
+            # If exception occurred in thread then raise it in main thread
+            raise thread_exc_info[1], None, thread_exc_info[2]
+
+    def _update_heartbeat(self, heartbeat, heartbeat_model_kwargs):
+        from propel.models import Heartbeats
+        if not heartbeat:
+            heartbeat = Heartbeats(
+                task_type=self.__class__.__name__,
+                last_heartbeat_time=datetime.utcnow(),
+                **heartbeat_model_kwargs if heartbeat_model_kwargs else dict()
+            )
+        else:
+            heartbeat.last_heartbeat_time = datetime.utcnow()
+        commit_db_object(heartbeat)
+        return heartbeat
