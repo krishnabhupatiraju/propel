@@ -10,6 +10,7 @@ from datetime import datetime
 from functools import wraps
 from propel import configuration
 from propel.settings import logger, Session
+from propel.utils.db import commit_db_object
 from propel.utils.log import reset_logger
 
 
@@ -195,6 +196,7 @@ class Memoize(object):
     """
     Decorator to memoize the results of the function until ttl.
     """
+
     def __init__(self, ttl):
         self.ttl = ttl
         self.expires_at = time.time() + ttl
@@ -214,6 +216,7 @@ class Memoize(object):
             else:
                 logger.debug("Cache hit for {}({},{})".format(func, args, kwargs))
             return self.cache[key]
+
         return wrapper
 
 
@@ -233,6 +236,7 @@ class FunctionExceptionCatcher(object):
     """
     Wrapper around function that catches and records exceptions
     """
+
     def __init__(self, func):
         self.func = func
         self.exc_info = None
@@ -298,7 +302,14 @@ class HeartbeatMixin(object):
         # daemon process
         heartbeat_process = billiard.Process(
             target=self._heartbeat_with_logger_redirect,
-            args=(thread_function, thread_args, thread_kwargs, log_file, heartbeat_model_kwargs)
+            args=(
+                thread_function,
+                thread_args,
+                thread_kwargs,
+                log_file,
+                heartbeat_model_kwargs,
+                child_process_exceptions
+            )
         )
         # # Setting is as a daemon process so the process exits when it receives
         # # a KILL signal. Otherwise sys.ext waits until the process finishes
@@ -309,8 +320,16 @@ class HeartbeatMixin(object):
 
         # If exception occurred in child process then raise it in parent process
         if not child_process_exceptions.empty():
-            child_process_exception = child_process_exceptions.get_nowait()
-            raise child_process_exception.exc_info[1], None, child_process_exception.exc_info[2]
+            (
+                child_process_exception_type,
+                child_process_exception_class,
+                child_process_traceback
+            ) = child_process_exceptions.get_nowait()
+            raise child_process_exception_type(
+                str(child_process_exception_class.message)
+                + "\n"
+                + child_process_traceback
+            )
 
     def _heartbeat_with_logger_redirect(
             self,
@@ -335,7 +354,7 @@ class HeartbeatMixin(object):
         :param heartbeat_model_kwargs: kwargs that are passed when creating heartbeat entry
         :type heartbeat_model_kwargs: dict
         :param exception_queue: Queue to communicate exceptions in this process to parent
-        :type heartbeat_model_kwargs: billiard.Queue
+        :type exception_queue: billiard.Queue
         """
         try:
             if log_file:
@@ -364,12 +383,15 @@ class HeartbeatMixin(object):
                         reset_logger()
             else:
                 self._run_heartbeat(thread_function, thread_args, thread_kwargs)
+        # Catch every exception including SystemExit and KeyboardInterrupt
         # Note: SystemExit is not captured by Exception.
-        # Leaving this to catch every exception including SystemExit and KeyboardInterrupt
         except BaseException:
             # If exception queue is specified add exception to Queue.
             if exception_queue:
-                exception_queue.put(sys.exc_info())
+                exception_type, exception_class, tb = sys.exc_info()
+                # traceback info is not pickleable. So extracting it as str before adding to queue
+                exception_queue.put((exception_type, exception_class, traceback.format_exc(tb)))
+                exception_queue.close()
             raise
 
     def _run_heartbeat(
@@ -425,26 +447,38 @@ class HeartbeatMixin(object):
         # a KILL signal. Otherwise sys.ext waits for the thread to finish.
         thread.daemon = True
         thread.start()
-        heartbeat = None
-        session = Session()
-
+        heartbeat=None
         heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
-        from propel.models import Heartbeats
         while thread.isAlive():
             if not heartbeat:
-                heartbeat = Heartbeats(
-                    task_type=self.__class__.__name__,
-                    last_heartbeat_time=datetime.utcnow(),
-                    **heartbeat_model_kwargs if heartbeat_model_kwargs else dict()
+                heartbeat = self._update_heartbeat(
+                    heartbeat=None,
+                    heartbeat_model_kwargs=heartbeat_model_kwargs
                 )
             else:
-                heartbeat.last_heartbeat_time = datetime.utcnow()
-            session.add(heartbeat)
-            session.commit()
+                self._update_heartbeat(
+                    heartbeat=heartbeat,
+                    heartbeat_model_kwargs=heartbeat_model_kwargs
+                )
             logger.info('Woot Woot from PID: {}'.format(os.getpid()))
             time.sleep(heartbeat_seconds)
 
-        thread_exception = thread_function_with_exception_catcher.exc_info
-        if thread_exception:
+        thread_exc_info = thread_function_with_exception_catcher.exc_info
+        if thread_exc_info:
             # If exception occurred in thread then raise it in main thread
-            raise thread_exception.exc_info[1], None, thread_exception.exc_info[2]
+            raise thread_exc_info[1], None, thread_exc_info[2]
+
+    def _update_heartbeat(self, heartbeat, heartbeat_model_kwargs):
+        from propel.models import Heartbeats
+        if not heartbeat:
+            heartbeat = Heartbeats(
+                task_type=self.__class__.__name__,
+                last_heartbeat_time=datetime.utcnow(),
+                **heartbeat_model_kwargs if heartbeat_model_kwargs else dict()
+            )
+        else:
+            heartbeat.last_heartbeat_time = datetime.utcnow()
+        commit_db_object(heartbeat)
+        return heartbeat
+
+
