@@ -9,7 +9,7 @@ import traceback
 from datetime import datetime
 from functools import wraps
 from propel import configuration
-from propel.settings import logger, Session
+from propel.settings import logger
 from propel.utils.db import commit_db_object
 from propel.utils.log import reset_logger
 
@@ -447,7 +447,7 @@ class HeartbeatMixin(object):
         # a KILL signal. Otherwise sys.ext waits for the thread to finish.
         thread.daemon = True
         thread.start()
-        heartbeat=None
+        heartbeat = None
         heartbeat_seconds = int(configuration.get('core', 'heartbeat_seconds'))
         while thread.isAlive():
             if not heartbeat:
@@ -480,5 +480,3 @@ class HeartbeatMixin(object):
             heartbeat.last_heartbeat_time = datetime.utcnow()
         commit_db_object(heartbeat)
         return heartbeat
-
-
