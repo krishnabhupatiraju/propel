@@ -52,7 +52,7 @@ class TestHeartbeatMixin(object):
             function_write_something,
             tmpdir
     ):
-        expected_output = "Tring Tring with (1, 2, 3) and {'a': 'a'}\n"
+        expected_output = "Tring Tring with (1, 2, 3) and {'a': 'a'}"
         tmp_file = tmpdir.join("tmp_file.txt").strpath
         heartbeat_mixin_instance.heartbeat(
             thread_function=function_write_something,
@@ -60,9 +60,12 @@ class TestHeartbeatMixin(object):
             thread_kwargs={'a': 'a'},
             log_file=tmp_file
         )
+        found_text = False
         with open(tmp_file) as f:
-            data = f.readlines()
-        assert data[0] == expected_output
+            for line in f:
+                if expected_output in line:
+                    found_text = True
+        assert found_text
 
     def test_heartbeat_child_process_receives_sysint(
             self,
@@ -71,6 +74,3 @@ class TestHeartbeatMixin(object):
     ):
         with pytest.raises(SystemExit):
             heartbeat_mixin_instance.heartbeat(thread_function=function_sysint)
-
-if __name__ == '__main__':
-    pytest.main()
