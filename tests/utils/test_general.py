@@ -9,7 +9,7 @@ class TestHeartbeatMixin(object):
 
     @pytest.fixture
     def heartbeat_mixin_instance(self, monkeypatch):
-        # Since we have no DB access mocking the method to update heartbeat model
+        # Since we have no DB access mocking the method that updates heartbeat model
         def mock__update_heartbeat(*args, **kwargs):
             return None
 
