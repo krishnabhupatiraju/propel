@@ -1,0 +1,2 @@
+class PropelException(Exception):
+    pass

@@ -1,11 +1,14 @@
 from datetime import datetime
+import networkx as nx
 from sqlalchemy import (Table, Column, String, Integer, BigInteger, JSON,
-                        DateTime, Enum, Boolean, ForeignKey)
+                        DateTime, Enum, Boolean, Interval, ForeignKey, event)
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
 from sqlalchemy.sql import func
 
+from propel.exceptions import PropelException
+from propel.tasks.base_task import BaseTask
 from propel.utils.db import provide_session
 from propel.utils.general import extract_from_json
 
@@ -583,3 +586,47 @@ class Article(object):
         self.text = text
         self.popularity = popularity
         self.url = url
+
+
+class DAG(Base):
+    __tablename__ = 'dags'
+    name = Column(String(100), primary_key=True)
+    description = Column(String(1000))
+    is_continuous_refresh = Column(Boolean, default=False)
+    is_scheduled = Column(Boolean, default=False)
+    start_date = Column(DateTime)
+    interval = Column(Interval)
+    dag_json = Column(JSON, nullable=False)
+
+    def __repr__(self):
+        return (
+            "<DAG(name={0}, description={1})>"
+            .format(self.name, self.description)
+        )
+
+    def add_dependency(self, parent, child):
+        if not (isinstance(parent, BaseTask) and isinstance(child, BaseTask)):
+            raise PropelException('Parent and Child should be instance of BaseTask')
+        self.dag.add_edge(parent, child)
+
+
+# This is called when the constructor of DAG is called
+@event.listens_for(DAG, 'init')
+def create_dag_object(target, args, kwargs):
+    target.dag = nx.DiGraph()
+
+@event.listens_for(DAG, 'load')
+def create_dag_object(target, context):
+    import pdb;
+    pdb.set_trace()
+    target.dag = nx.readwrite.json_graph.adjacency_graph(context.dag_json)
+
+# This is called just before instance is being pickled to write to DB
+@event.listens_for(DAG, 'before_insert')
+def create_dag_(mapper, connection, target):
+    print mapper
+    print connection
+    target.dag_json = nx.readwrite.json_graph.adjacency_data(target.dag)
+    print "***********************************"
+    import pdb;
+    pdb.set_trace()
