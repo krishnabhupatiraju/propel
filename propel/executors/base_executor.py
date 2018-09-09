@@ -1,7 +1,7 @@
 from propel import configuration
 from propel.models import TaskRuns
 from propel.settings import logger
-from propel.utils.db import commit_db_object
+from propel.utils.db import commit_db_object, provide_session
 from propel.utils.general import HeartbeatMixin
 from propel.utils.state import State
 
@@ -20,10 +20,11 @@ class BaseExecutor(HeartbeatMixin):
             raise NotImplementedError('Task type {} not defined'.format(task_type))
         return task_class
 
+    @provide_session
     def execute(self, task_run_params, session=None):
         logger.info('Running TaskRun {}'.format(task_run_params))
         task_run_id = task_run_params['task_run_id']
-        task_run = TaskRuns(task_run_id=task_run_id)
+        task_run = session.query(TaskRuns).filter(TaskRuns.id == task_run_id).first()
         log_file = (
                 configuration.get('log', 'tasks_log_location')
                 + str(task_run_id)
