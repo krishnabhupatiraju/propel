@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import networkx as nx
 from sqlalchemy import (Table, Column, String, Integer, BigInteger, JSON,
@@ -6,8 +7,10 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
 from sqlalchemy.sql import func
+from time import mktime, struct_time
 
 from propel.exceptions import PropelException
+from propel.settings import logger
 from propel.tasks.base_task import BaseTask
 from propel.utils.db import provide_session
 from propel.utils.general import extract_from_json
@@ -19,7 +22,7 @@ class Connections(Base):
     __tablename__ = 'connections'
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    type = Column(Enum('Twitter', 'Youtube', 'NewsAPI'), nullable=False)
+    type = Column(Enum('Twitter', 'Youtube'), nullable=False)
     key = Column(String(5000))
     secret = Column(String(5000))
     token = Column(String(5000))
@@ -535,12 +538,11 @@ class Tweets(Base):
 class News(Base):
     __tablename__ = 'news'
     news_id = Column(BIGINT(unsigned=True), primary_key=True)
-    author = Column(String(100))
-    description = Column(String(2000))
-    published_at = Column(DateTime)
-    source = Column(JSON)
+    source = Column(String(100))
     title = Column(String(2000))
+    summary = Column(String(2000))
     url = Column(String(1000))
+    published_at = Column(DateTime)
     raw_news = Column(JSON)
 
     def __repr__(self):
@@ -551,24 +553,43 @@ class News(Base):
 
     @classmethod
     @provide_session
-    def load_into_db(cls, news_json, session=None):
-        date_format = '%Y-%m-%dT%H:%M:%SZ'
+    def load_into_db(cls, news_feed_dict, session=None):
         news = list()
-        for news_item in news_json:
+        try:
+            source = news_feed_dict['feed']['link']
+        except KeyError as ke:
+            logger.exception(ke)
+            raise PropelException('Unable to parse News feed Dict')
+        news_entries = news_feed_dict.get('entries')
+        for news_entry in news_entries:
             news_dict = dict()
-            news_dict['author'] = news_item.get('author')
-            news_dict['description'] = news_item.get('description')
-            news_dict['published_at'] = datetime.strptime(
-                news_item.get('publishedAt'),
-                date_format
-            )
-            news_dict['source'] = extract_from_json(news_item, 'source.name')
-            news_dict['title'] = news_item.get('title')
-            news_dict['url'] = news_item.get('url')
-            news_dict['raw_news'] = news_item
+            news_dict['source'] = source
+            news_dict['title'] = news_entry.get('title')
+            news_dict['summary'] = news_entry.get('summary')
+            news_dict['url'] = news_entry.get('link')
+            if news_entry.get('published_parsed'):
+                news_dict['published_at'] = datetime.fromtimestamp(
+                    mktime(news_entry.get('published_parsed'))
+                )
+            else:
+                news_dict['published_at'] = datetime.utcnow()
+            news_dict['raw_news'] = json.dumps(news_entry, default=cls._python_object_converter)
             # Collecting news object to bulk update at the end
             news.append(cls(**news_dict))
         session.bulk_save_objects(news)
+        # TODO: Create functionality to merge
+        # (news_id field should be a hash of url)
+        # (Read article on merging session)
+        # TODO: Create migration script for changes to news database
+
+    @staticmethod
+    def _python_object_converter(o):
+        """
+        Helper function called by json dumps when the python object cannot be converted to json by
+        json parser
+        """
+        if isinstance(o, datetime) or isinstance(o, struct_time):
+            return o.__str__()
 
 
 class Article(object):
