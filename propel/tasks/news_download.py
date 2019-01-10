@@ -21,7 +21,7 @@ class NewsDownload(BaseTask):
         """
         rss_url = json.loads(task['task_args'])['rss_url']
         rss_response = feedparser.parse(url_file_stream_or_string=rss_url)
-        if rss_response.status != 200:
+        if not (hasattr(rss_response, 'status') and rss_response.status == 200):
             raise PropelException('Non 200 response: {}'.format(rss_response.status))
         else:
             logger.info('Got {} news articles'.format(len(rss_response.entries)))

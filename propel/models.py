@@ -1,3 +1,4 @@
+import hashlib
 import json
 from datetime import datetime
 import networkx as nx
@@ -537,7 +538,7 @@ class Tweets(Base):
 
 class News(Base):
     __tablename__ = 'news'
-    news_id = Column(BIGINT(unsigned=True), primary_key=True)
+    news_id = Column(String(64), primary_key=True)
     source = Column(String(100))
     title = Column(String(2000))
     summary = Column(String(2000))
@@ -554,7 +555,6 @@ class News(Base):
     @classmethod
     @provide_session
     def load_into_db(cls, news_feed_dict, session=None):
-        news = list()
         try:
             source = news_feed_dict['feed']['link']
         except KeyError as ke:
@@ -563,6 +563,7 @@ class News(Base):
         news_entries = news_feed_dict.get('entries')
         for news_entry in news_entries:
             news_dict = dict()
+            news_dict['news_id'] = hashlib.sha256(news_entry.get('link')).hexdigest()
             news_dict['source'] = source
             news_dict['title'] = news_entry.get('title')
             news_dict['summary'] = news_entry.get('summary')
@@ -574,13 +575,8 @@ class News(Base):
             else:
                 news_dict['published_at'] = datetime.utcnow()
             news_dict['raw_news'] = json.dumps(news_entry, default=cls._python_object_converter)
-            # Collecting news object to bulk update at the end
-            news.append(cls(**news_dict))
-        session.bulk_save_objects(news)
-        # TODO: Create functionality to merge
-        # (news_id field should be a hash of url)
-        # (Read article on merging session)
-        # TODO: Create migration script for changes to news database
+            # Merging newly created News
+            session.merge(cls(**news_dict))
 
     @staticmethod
     def _python_object_converter(o):
@@ -636,11 +632,13 @@ class DAG(Base):
 def create_dag_object(target, args, kwargs):
     target.dag = nx.DiGraph()
 
+
 @event.listens_for(DAG, 'load')
 def create_dag_object(target, context):
     import pdb;
     pdb.set_trace()
     target.dag = nx.readwrite.json_graph.adjacency_graph(context.dag_json)
+
 
 # This is called just before instance is being pickled to write to DB
 @event.listens_for(DAG, 'before_insert')
