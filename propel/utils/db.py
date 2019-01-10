@@ -35,9 +35,10 @@ def provide_session(func):
         func_args = inspect.getargspec(func).args
         # Check if session is passed as part of kwargs or args
         session_in_kwargs = session_arg in kwargs
-        session_in_args = (session_arg in func_args
-                           and len(args) > func_args.index(session_arg)
-                           )
+        session_in_args = (
+                session_arg in func_args
+                and len(args) > func_args.index(session_arg)
+        )
         if session_in_kwargs or session_in_args:
             return func(*args, **kwargs)
         else:
