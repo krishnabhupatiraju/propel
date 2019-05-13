@@ -2,8 +2,7 @@ import json
 
 from requests_oauthlib import OAuth2Session
 
-from propel.tasks.base_task import BaseTask
-from propel.models import Connections, Tweets
+from propel.models import Connections, Tweets, BaseTask
 from propel.settings import logger
 from propel.utils.db import provide_session
 

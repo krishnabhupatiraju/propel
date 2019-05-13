@@ -61,6 +61,31 @@ class TaskRunsView(ModelView):
             for column in TaskRuns.__table__.columns._all_columns
         ]
 
+class NewsView(ModelView):
+    page_size = 50
+    can_export = True
+    column_filters = [
+        'source',
+        'published_at',
+        'title'
+    ]
+    column_list = [
+        'source',
+        'published_at',
+        'title',
+        'summary',
+        'url'
+    ]
+    can_create = False
+
+    def create_anchor_link(view, context, model, url):
+        return Markup(
+            "<a href='{}' target='_blank'>Link</a>"
+            .format(getattr(model, url))
+        )
+
+    column_formatters = dict(url=create_anchor_link)
+
 
 class ArticlesDeckView(BaseView):
     @expose('/', methods=['GET', 'POST'])
@@ -135,7 +160,7 @@ def create_app():
     admin.add_view(TaskRunsView(TaskRuns, Session))
     admin.add_view(ModelView(Heartbeats, Session))
     admin.add_view(TweetsView(Tweets, Session))
-    admin.add_view(ModelView(News, Session))
+    admin.add_view(NewsView(News, Session))
     admin.add_view(ArticlesDeckView(name='ArticlesDeck'))
 
     # After the request response cycle is complete removing the scoped session.

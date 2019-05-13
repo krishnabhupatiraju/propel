@@ -2,8 +2,7 @@ import json
 import feedparser
 
 from propel.exceptions import PropelException
-from propel.models import News
-from propel.tasks.base_task import BaseTask
+from propel.models import News, BaseTask
 from propel.settings import logger
 
 

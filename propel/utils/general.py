@@ -480,3 +480,17 @@ class HeartbeatMixin(object):
             heartbeat.last_heartbeat_time = datetime.utcnow()
         commit_db_object(heartbeat)
         return heartbeat
+
+
+class add_path(object):
+    def __init__(self, path):
+        self.path = path
+
+    def __enter__(self):
+        sys.path.insert(0, self.path)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            sys.path.remove(self.path)
+        except ValueError:
+            pass
