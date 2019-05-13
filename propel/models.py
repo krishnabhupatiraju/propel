@@ -1,20 +1,22 @@
 import hashlib
+import importlib
 import json
+import os
 from datetime import datetime
 import networkx as nx
 from sqlalchemy import (Table, Column, String, Integer, BigInteger, JSON,
-                        DateTime, Enum, Boolean, Interval, ForeignKey, event)
+                        DateTime, Enum, Boolean, ForeignKey)
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship
 from sqlalchemy.sql import func
 from time import mktime, struct_time
 
+from propel import configuration
 from propel.exceptions import PropelException
 from propel.settings import logger
-from propel.tasks.base_task import BaseTask
 from propel.utils.db import provide_session
-from propel.utils.general import extract_from_json
+from propel.utils.general import extract_from_json, add_path
 
 Base = declarative_base()
 
@@ -605,47 +607,134 @@ class Article(object):
         self.url = url
 
 
-class DAG(Base):
-    __tablename__ = 'dags'
-    name = Column(String(100), primary_key=True)
-    description = Column(String(1000))
-    is_continuous_refresh = Column(Boolean, default=False)
-    is_scheduled = Column(Boolean, default=False)
-    start_date = Column(DateTime)
-    interval = Column(Interval)
-    dag_json = Column(JSON, nullable=False)
+class DagBag(object):
+    """
+    A collection of dags that are parsed from the dags_location
+    """
+    def __init__(self):
+        self.dags_location = configuration.get('core', 'dags_location')
+        self.dags = list()
+
+    def parse_dags(self):
+        with add_path(self.dags_location):
+            for dirpath, _, filenames in os.walk(self.dags_location, followlinks=True):
+                for filename in filenames:
+                    relative_file_path = os.path.join(
+                        os.path.relpath(dirpath, self.dags_location),
+                        filename
+                    )
+                    full_file_path = os.path.join(dirpath, filename)
+                    # Expect DAG files to be python files with 'DAG' word in the file
+                    if not filename.endswith('.py'):
+                        continue
+                    with open(full_file_path) as f:
+                        if 'DAG' not in f.read():
+                            continue
+                    try:
+                        module_name = relative_file_path.replace('/', '.').replace('.py', '')
+                        imported_module = importlib.import_module(module_name)
+                        self.dags.append(imported_module)
+                    except Exception as e:
+                        logger.warn("Could not import module {}".format(relative_file_path))
+                        logger.warn(e)
+
+
+class DAG(object):
+    """
+    DAG Object to which tasks are added
+    """
+    def __init__(
+            self,
+            dag_id,
+            description,
+            is_scheduled,
+            start_date,
+            interval,
+            dag_location
+    ):
+        self.dag_id = dag_id
+        self.description = description
+        self.is_scheduled = is_scheduled
+        self.start_date = start_date
+        self.interval = interval
+        self.dag_location = dag_location
+        self.dag = nx.DiGraph()
 
     def __repr__(self):
         return (
-            "<DAG(name={0}, description={1})>"
-            .format(self.name, self.description)
+            "<DAG(dag_id={0}, description={1})>"
+            .format(self.dag_id, self.description)
         )
 
-    def add_dependency(self, parent, child):
-        if not (isinstance(parent, BaseTask) and isinstance(child, BaseTask)):
-            raise PropelException('Parent and Child should be instance of BaseTask')
-        self.dag.add_edge(parent, child)
+    def add_task(self, task):
+        if not isinstance(task, BaseTask):
+            raise PropelException("{} is not a Task. Only tasks can added to a DAG".format(task))
+        self.dag.add_node(task)
+        task.dag = self
+
+    def add_upstream(self, task, upstream_task):
+        self.dag.add_edge(upstream_task, task)
+
+    def add_downstream(self, task, downstream_task):
+        self.dag.add_edge(task, downstream_task)
+
+    def is_valid(self):
+        return nx.is_directed_acyclic_graph(self.dag)
+
+    def get_tasks(self):
+        return self.dag.nodes
+
+    def get_task_ids(self):
+        task_ids = list()
+        for task in self.get_tasks():
+            task_ids.append(task.task_id)
+        return task_ids
+
+    def is_task_id_in_dag(self, task_id):
+        for task in self.get_tasks():
+            if task.task_id == task_id:
+                return True, task
+        return False, None
+
+    def get_upstream_tasks(self, task_id):
+        is_task_id_in_dag, task = self.is_task_id_in_dag(task_id)
+        if is_task_id_in_dag:
+            return nx.ancestors(self.dag, task)
+        return None
+
+    def get_downstream_tasks(self, task_id):
+        is_task_id_in_dag, task = self.is_task_id_in_dag(task_id)
+        if is_task_id_in_dag:
+            return nx.descendants(self.dag, task)
+        return None
 
 
-# This is called when the constructor of DAG is called
-@event.listens_for(DAG, 'init')
-def create_dag_object(target, args, kwargs):
-    target.dag = nx.DiGraph()
+class BaseTask(object):
+    """
+    Abstract BaseTask class that concrete subclasses will
+    implement
+    """
 
+    def __init__(
+            self,
+            task_id,
+            params=None,
+            dag=None
+    ):
+        self.task_id = task_id
+        if params:
+            self.params = params
+        else:
+            self.params = dict()
+        if dag:
+            dag.add_task(self)
+            self.dag = dag
 
-@event.listens_for(DAG, 'load')
-def create_dag_object(target, context):
-    import pdb;
-    pdb.set_trace()
-    target.dag = nx.readwrite.json_graph.adjacency_graph(context.dag_json)
+    def execute(self, task):
+        """
+        Execute task
 
-
-# This is called just before instance is being pickled to write to DB
-@event.listens_for(DAG, 'before_insert')
-def create_dag_(mapper, connection, target):
-    print mapper
-    print connection
-    target.dag_json = nx.readwrite.json_graph.adjacency_data(target.dag)
-    print "***********************************"
-    import pdb;
-    pdb.set_trace()
+        :param task: An dict that contains details about the task to run
+        :type task: dict
+        """
+        raise NotImplementedError()
