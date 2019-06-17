@@ -263,7 +263,7 @@ class HeartbeatMixin(object):
     ):
         """
         Method that runs process_function through "multiprocessing" and sends regular heartbeat
-        If "process_log_file" is defined log output is redirected to process_log_file
+        If "log_file" is defined log output is redirected to log_file
 
         :param thread_function: Function to run as a thread with the heartbeat process
         :type thread_function: function

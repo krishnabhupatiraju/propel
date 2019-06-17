@@ -1,5 +1,6 @@
 import hashlib
 import importlib
+import inspect
 import json
 import os
 from datetime import datetime
@@ -38,69 +39,163 @@ class Connections(Base):
             .format(self.id, self.name)
         )
 
+class DagBag(object):
+    """
+    A collection of dags that are parsed from the dags_location
+    """
+    def __init__(self):
+        self.dags_location = configuration.get('core', 'dags_location')
+        self.dags = list()
 
-# Association table to define Many to Many relationship
-# between Task Groups and Tasks
-task_group_members = Table('task_group_members',
-                           Base.metadata,
-                           Column('task_group_id', Integer, ForeignKey('task_groups.id')),
-                           Column('task_id', Integer, ForeignKey('tasks.id'))
-                           )
+    def parse_dags(self):
+        with add_path(self.dags_location):
+            for dirpath, _, filenames in os.walk(self.dags_location, followlinks=True):
+                for filename in filenames:
+                    relative_file_path = os.path.join(
+                        os.path.relpath(dirpath, self.dags_location),
+                        filename
+                    )
+                    full_file_path = os.path.join(dirpath, filename)
+                    # Expect DAG files to be python files with 'DAG' word in the file
+                    if not filename.endswith('.py'):
+                        continue
+                    with open(full_file_path) as f:
+                        if 'DAG' not in f.read():
+                            continue
+                    try:
+                        module_name = relative_file_path.replace('/', '.').replace('.py', '')
+                        imported_module = importlib.import_module(module_name)
+                        for _, item in inspect.getmembers(imported_module):
+                            if isinstance(item, DAG):
+                                self.dags.append(item)
+                                item.dag_location = full_file_path
+                    except Exception as e:
+                        logger.warn("Could not import module {}".format(relative_file_path))
+                        logger.warn(e)
 
 
-class TaskGroups(Base):
-    __tablename__ = 'task_groups'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    is_enabled = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    tasks = relationship('Tasks', backref='task_groups', secondary=task_group_members)
-
-    def __repr__(self):
-        return "<Task Group(id={0}, name={1})>".format(self.id, self.name)
-
-
-class Tasks(Base):
-    __tablename__ = 'tasks'
-    id = Column(Integer, primary_key=True)
-    task_name = Column(String(1000), nullable=False)
-    task_type = Column(Enum('TwitterExtract', 'NewsDownload'), nullable=False)
-    task_args = Column(String(1000), nullable=False)
-    run_frequency_seconds = Column(Integer, nullable=False)
-    schedule_latest = Column(Boolean, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+class DAG(object):
+    """
+    DAG Object to which tasks are added
+    """
+    def __init__(
+            self,
+            dag_id,
+            description,
+            is_scheduled,
+            start_date,
+            interval,
+    ):
+        self.dag_id = dag_id
+        self.description = description
+        self.is_scheduled = is_scheduled
+        self.start_date = start_date
+        self.interval = interval
+        self.dag = nx.DiGraph()
+        self._dag_location = None
 
     def __repr__(self):
         return (
-            "<Task(id={0}, task_type={2}, task_args={1})>"
-            .format(self.id, self.task_args, self.task_type)
+            "<DAG(dag_id={0}, description={1})>"
+            .format(self.dag_id, self.description)
         )
 
-    def as_dict(self):
-        return {
-            column_name: getattr(self, column_name)
-            for column_name in self.__mapper__.c.keys()
-        }
+    @property
+    def dag_location(self):
+        return self._dag_location
+
+    @dag_location.setter
+    def dag_location(self, dag_location):
+        self._dag_location = dag_location
+
+    def add_task(self, task):
+        if not isinstance(task, BaseTask):
+            raise PropelException("{} is not a Task. Only tasks can added to a DAG".format(task))
+        self.dag.add_node(task)
+        task.dag = self
+
+    def add_upstream(self, task, upstream_task):
+        self.dag.add_edge(upstream_task, task)
+
+    def add_downstream(self, task, downstream_task):
+        self.dag.add_edge(task, downstream_task)
+
+    def is_valid(self):
+        return nx.is_directed_acyclic_graph(self.dag)
+
+    def get_tasks(self):
+        return self.dag.nodes
+
+    def get_task_ids(self):
+        task_ids = list()
+        for task in self.get_tasks():
+            task_ids.append(task.task_id)
+        return task_ids
+
+    def is_task_id_in_dag(self, task_id):
+        for task in self.get_tasks():
+            if task.task_id == task_id:
+                return True, task
+        return False, None
+
+    def get_upstream_tasks(self, task_id):
+        is_task_id_in_dag, task = self.is_task_id_in_dag(task_id)
+        if is_task_id_in_dag:
+            return nx.ancestors(self.dag, task)
+        return None
+
+    def get_downstream_tasks(self, task_id):
+        is_task_id_in_dag, task = self.is_task_id_in_dag(task_id)
+        if is_task_id_in_dag:
+            return nx.descendants(self.dag, task)
+        return None
+
+
+class DagRuns(Base):
+    __tablename__ = 'dag_runs'
+    id = Column(Integer, primary_key=True)
+    dag_id = Column(String(255), nullable=False)
+    run_ds = Column(DateTime, nullable=False)
+    state = Column(String(255), nullable=False)
+
+    def __repr__(self):
+        return (
+            "<DagRun(id={0}, dag_id={1}, run_ds={2}, state={3})>"
+            .format(self.id, self.dag_id, self.run_ds, self.state)
+        )
 
 
 class TaskRuns(Base):
     __tablename__ = 'task_runs'
     id = Column(Integer, primary_key=True)
-    task_id = Column(Integer, ForeignKey('tasks.id'), nullable=False)
+    dag_id = Column(String(255), nullable=False)
+    task_id = Column(String(255), nullable=False)
     state = Column(String(255), nullable=False)
     run_ds = Column(DateTime, nullable=False)
     start_time = Column(DateTime)
     end_time = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    tasks = relationship('Tasks', backref=backref('task_runs', lazy='dynamic'))
 
     def __repr__(self):
         return (
-            "<TaskRun(id={0}, task_id={1}, run_ds={2}, state={3})>"
-            .format(self.id, self.task_id, self.run_ds, self.state)
+            "<TaskRun(id={0}, dag_id={1}, task_id={1}, run_ds={2}, state={3})>"
+            .format(self.id, self.dag_id, self.task_id, self.run_ds, self.state)
+        )
+
+
+class TaskRunDependencies(Base):
+    __tablename__ = 'task_run_dependencies'
+    id = Column(Integer, primary_key=True)
+    task_run_id = Column(Integer, ForeignKey('task_runs.id'), nullable=False)
+    upstream_task_id = Column(Integer, ForeignKey('task_runs.id'), nullable=False)
+    task = relationship('TaskRuns', foreign_keys=[task_run_id], backref=backref('upstream_dependencies'))
+    upstream_task = relationship('TaskRuns', foreign_keys=[upstream_task_id], backref=backref('downstream_dependencies'))
+
+    def __repr__(self):
+        return (
+            "<TaskRunDependency(task_run_id={0}, upstream_task_run_id={1})>"
+            .format(self.id, self.task_run_id, self.upstream_task_id)
         )
 
 
@@ -605,108 +700,6 @@ class Article(object):
         self.text = text
         self.popularity = popularity
         self.url = url
-
-
-class DagBag(object):
-    """
-    A collection of dags that are parsed from the dags_location
-    """
-    def __init__(self):
-        self.dags_location = configuration.get('core', 'dags_location')
-        self.dags = list()
-
-    def parse_dags(self):
-        with add_path(self.dags_location):
-            for dirpath, _, filenames in os.walk(self.dags_location, followlinks=True):
-                for filename in filenames:
-                    relative_file_path = os.path.join(
-                        os.path.relpath(dirpath, self.dags_location),
-                        filename
-                    )
-                    full_file_path = os.path.join(dirpath, filename)
-                    # Expect DAG files to be python files with 'DAG' word in the file
-                    if not filename.endswith('.py'):
-                        continue
-                    with open(full_file_path) as f:
-                        if 'DAG' not in f.read():
-                            continue
-                    try:
-                        module_name = relative_file_path.replace('/', '.').replace('.py', '')
-                        imported_module = importlib.import_module(module_name)
-                        self.dags.append(imported_module)
-                    except Exception as e:
-                        logger.warn("Could not import module {}".format(relative_file_path))
-                        logger.warn(e)
-
-
-class DAG(object):
-    """
-    DAG Object to which tasks are added
-    """
-    def __init__(
-            self,
-            dag_id,
-            description,
-            is_scheduled,
-            start_date,
-            interval,
-            dag_location
-    ):
-        self.dag_id = dag_id
-        self.description = description
-        self.is_scheduled = is_scheduled
-        self.start_date = start_date
-        self.interval = interval
-        self.dag_location = dag_location
-        self.dag = nx.DiGraph()
-
-    def __repr__(self):
-        return (
-            "<DAG(dag_id={0}, description={1})>"
-            .format(self.dag_id, self.description)
-        )
-
-    def add_task(self, task):
-        if not isinstance(task, BaseTask):
-            raise PropelException("{} is not a Task. Only tasks can added to a DAG".format(task))
-        self.dag.add_node(task)
-        task.dag = self
-
-    def add_upstream(self, task, upstream_task):
-        self.dag.add_edge(upstream_task, task)
-
-    def add_downstream(self, task, downstream_task):
-        self.dag.add_edge(task, downstream_task)
-
-    def is_valid(self):
-        return nx.is_directed_acyclic_graph(self.dag)
-
-    def get_tasks(self):
-        return self.dag.nodes
-
-    def get_task_ids(self):
-        task_ids = list()
-        for task in self.get_tasks():
-            task_ids.append(task.task_id)
-        return task_ids
-
-    def is_task_id_in_dag(self, task_id):
-        for task in self.get_tasks():
-            if task.task_id == task_id:
-                return True, task
-        return False, None
-
-    def get_upstream_tasks(self, task_id):
-        is_task_id_in_dag, task = self.is_task_id_in_dag(task_id)
-        if is_task_id_in_dag:
-            return nx.ancestors(self.dag, task)
-        return None
-
-    def get_downstream_tasks(self, task_id):
-        is_task_id_in_dag, task = self.is_task_id_in_dag(task_id)
-        if is_task_id_in_dag:
-            return nx.descendants(self.dag, task)
-        return None
 
 
 class BaseTask(object):

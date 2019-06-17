@@ -95,6 +95,10 @@ class Scheduler(HeartbeatMixin):
         executor = Executor()
         while True:
             current_datetime = datetime.utcnow()
+            # Parse DAGs
+
+
+
             tasks_to_run = self._get_eligible_tasks_to_run(current_datetime)
             for task_run_params in tasks_to_run:
                 task_run_id = self._insert_new_task_run_to_db(
