@@ -46,5 +46,5 @@ six==1.11.0
 SQLAlchemy==1.1.14
 urllib3==1.24.1
 vine==1.1.4
-Werkzeug==0.12.2
+Werkzeug==0.15.3
 WTForms==2.1
